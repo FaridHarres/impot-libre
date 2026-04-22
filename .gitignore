@@ -1,5 +1,12 @@
 node_modules/
 .env
+.env.local
+.env.production
 dist/
+build/
 server/node_modules/
 server/.env
+server/logs/
+logs/
+*.pem
+*.key

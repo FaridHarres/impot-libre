@@ -69,8 +69,8 @@ function AdminRoute({ children }) {
   }
 
   if (!isAuthenticated || !isAdmin) {
-    // Rediriger vers la page de login admin sécurisée
-    return <Navigate to="/admin-login" replace />;
+    // Rediriger vers l'accueil (ne pas révéler l'URL secrète admin)
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -104,12 +104,12 @@ function App() {
           <Route path="/resultats" element={<Resultats />} />
           <Route path="/mentions-legales" element={<MentionsLegales />} />
 
-          {/* ─── Admin login (2FA) ─── */}
-          {/* Toujours accessible via /admin-login (dev) */}
-          <Route path="/admin-login" element={<AdminLogin />} />
-          {/* Accessible via l'URL secrète si définie */}
-          {ADMIN_SECRET && (
+          {/* ─── Admin login (2FA) — URL secrète uniquement ─── */}
+          {ADMIN_SECRET ? (
             <Route path={ADMIN_LOGIN_PATH} element={<AdminLogin />} />
+          ) : (
+            /* Fallback dev uniquement si pas de secret configuré */
+            <Route path="/admin-login" element={<AdminLogin />} />
           )}
 
           {/* ─── Admin dashboard (protégé) ─── */}

@@ -48,8 +48,14 @@ export default function Register() {
     }
     if (!form.password) {
       errs.password = 'Le mot de passe est requis.';
-    } else if (form.password.length < 8) {
-      errs.password = 'Le mot de passe doit contenir au moins 8 caractères.';
+    } else if (form.password.length < 12) {
+      errs.password = 'Le mot de passe doit contenir au moins 12 caractères.';
+    } else if (!/[A-Z]/.test(form.password)) {
+      errs.password = 'Le mot de passe doit contenir au moins une majuscule.';
+    } else if (!/[0-9]/.test(form.password)) {
+      errs.password = 'Le mot de passe doit contenir au moins un chiffre.';
+    } else if (!/[^a-zA-Z0-9]/.test(form.password)) {
+      errs.password = 'Le mot de passe doit contenir au moins un caractère spécial.';
     }
     if (form.password !== form.confirmPassword) {
       errs.confirmPassword = 'Les mots de passe ne correspondent pas.';
@@ -93,9 +99,17 @@ export default function Register() {
       // NE PAS auto-login — l'utilisateur doit d'abord confirmer son email
       setSuccess(true);
     } catch (err) {
-      const msg =
+      let msg =
         err.response?.data?.message ||
         "Une erreur est survenue lors de l'inscription. Veuillez réessayer.";
+      // Afficher les détails de validation Zod si disponibles
+      const details = err.response?.data?.details?.fieldErrors;
+      if (details) {
+        const firstField = Object.keys(details)[0];
+        if (firstField && details[firstField]?.[0]) {
+          msg = details[firstField][0];
+        }
+      }
       setGlobalError(msg);
     } finally {
       setLoading(false);
@@ -221,9 +235,25 @@ export default function Register() {
               value={form.password}
               onChange={handleChange}
               error={errors.password}
-              placeholder="Minimum 8 caractères"
+              placeholder="Minimum 12 caractères"
               required
             />
+            {form.password && (
+              <div className="mb-3 -mt-2 text-xs space-y-0.5">
+                <p className={form.password.length >= 12 ? 'text-succes' : 'text-gris-texte'}>
+                  {form.password.length >= 12 ? '✓' : '○'} 12 caractères minimum
+                </p>
+                <p className={/[A-Z]/.test(form.password) ? 'text-succes' : 'text-gris-texte'}>
+                  {/[A-Z]/.test(form.password) ? '✓' : '○'} Une majuscule
+                </p>
+                <p className={/[0-9]/.test(form.password) ? 'text-succes' : 'text-gris-texte'}>
+                  {/[0-9]/.test(form.password) ? '✓' : '○'} Un chiffre
+                </p>
+                <p className={/[^a-zA-Z0-9]/.test(form.password) ? 'text-succes' : 'text-gris-texte'}>
+                  {/[^a-zA-Z0-9]/.test(form.password) ? '✓' : '○'} Un caractère spécial (!@#$...)
+                </p>
+              </div>
+            )}
 
             <Input
               label="Confirmer le mot de passe"

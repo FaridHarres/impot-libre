@@ -110,7 +110,7 @@ export async function sendVerificationEmail(email, prenom, token) {
 export async function sendOTPEmail(email, otp) {
   return sendEmail({
     to: [{ email }],
-    subject: `Code de connexion admin : ${otp} — Impôt Libre`,
+    subject: 'Code de connexion admin — Impôt Libre',
     htmlContent: `
       <div style="font-family: 'Marianne', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff;">
         <div style="background: #003189; padding: 20px; text-align: center;">

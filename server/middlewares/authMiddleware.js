@@ -2,16 +2,32 @@ import jwt from 'jsonwebtoken';
 
 /**
  * Middleware d'authentification JWT.
- * Extrait et vérifie le token Bearer, puis attache l'utilisateur à req.user.
+ * Lit le token depuis :
+ *   1. Cookie httpOnly (prioritaire, plus securise)
+ *   2. Header Authorization: Bearer <token> (fallback compatibilite)
  */
 export function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
+  let token = null;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token manquant ou mal formaté.', error: 'Token manquant ou mal formaté.' });
+  // 1. Cookie httpOnly (recommande)
+  if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
   }
 
-  const token = authHeader.split(' ')[1];
+  // 2. Fallback : header Authorization
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      message: 'Authentification requise.',
+      error: 'Authentification requise.',
+    });
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -19,7 +35,7 @@ export function authMiddleware(req, res, next) {
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expiré.', error: 'Token expiré.' });
+      return res.status(401).json({ message: 'Session expiree.', error: 'Session expiree.' });
     }
     return res.status(401).json({ message: 'Token invalide.', error: 'Token invalide.' });
   }

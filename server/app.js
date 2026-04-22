@@ -4,7 +4,9 @@ dotenv.config();
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { generalLimiter } from './middlewares/rateLimiter.js';
+import logger from './utils/logger.js';
 
 // Routes
 import authRoutes from './routes/authRoutes.js';
@@ -16,28 +18,64 @@ import adminAuthRoutes from './routes/adminAuthRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// === Confiance au premier proxy (Railway, etc.) ===
+app.set('trust proxy', 1);
 
 // === Middlewares globaux ===
 
-// Sécurité HTTP headers
-app.use(helmet());
+// Sécurité HTTP headers — Helmet avec CSP strict
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'none'"],
+        frameSrc: ["'none'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        upgradeInsecureRequests: IS_PROD ? [] : null,
+      },
+    },
+    crossOriginEmbedderPolicy: false, // nécessaire si le frontend est séparé
+    hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+  })
+);
 
-// CORS — autorise le frontend
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-}));
+// Cookie parser (pour lire les cookies httpOnly)
+app.use(cookieParser());
+
+// CORS — autorise UNIQUEMENT le frontend, méthodes restreintes
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Permettre les requêtes sans origin (apps mobiles, curl, etc.)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS non autorisé'));
+      }
+    },
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
 
 // Rate limiting global
 app.use(generalLimiter);
 
-// Parser JSON (limite à 1 Mo pour éviter les abus)
-app.use(express.json({ limit: '1mb' }));
-
-// Confiance au premier proxy (pour X-Forwarded-For)
-app.set('trust proxy', 1);
+// Parser JSON (limite à 100 Ko pour éviter les abus)
+app.use(express.json({ limit: '100kb' }));
 
 // === Montage des routes ===
 app.use('/api/auth', authRoutes);
@@ -47,9 +85,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin-auth', adminAuthRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 
-// Route de santé
+// Route de santé (pas de données sensibles)
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok' });
 });
 
 // === Gestion des erreurs ===
@@ -60,19 +98,25 @@ app.use((_req, res) => {
 });
 
 // Gestionnaire d'erreurs global
-app.use((err, _req, res, _next) => {
-  console.error('[SERVER] Erreur non gérée :', err);
+app.use((err, req, res, _next) => {
+  logger.error('Erreur non gérée', {
+    error: err.message,
+    stack: IS_PROD ? undefined : err.stack,
+    path: req.path,
+    method: req.method,
+    ip: req.ip,
+  });
+
   res.status(500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Erreur interne du serveur.'
-      : err.message,
+    error: IS_PROD ? 'Erreur interne du serveur.' : err.message,
   });
 });
 
 // === Démarrage du serveur ===
 app.listen(PORT, () => {
-  console.log(`[SERVER] impot-libre.fr API démarrée sur le port ${PORT}`);
-  console.log(`[SERVER] Environnement : ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`API démarrée sur le port ${PORT}`, {
+    env: process.env.NODE_ENV || 'development',
+  });
 });
 
 export default app;

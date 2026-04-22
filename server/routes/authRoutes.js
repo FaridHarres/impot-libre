@@ -1,21 +1,26 @@
 import { Router } from 'express';
-import { register, login, getProfile, verifyEmail, resendVerification } from '../controllers/authController.js';
+import { register, login, logout, getProfile, verifyEmail, resendVerification } from '../controllers/authController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import { authLimiter } from '../middlewares/rateLimiter.js';
+import { validate } from '../middlewares/validate.js';
+import { registerSchema, loginSchema, resendVerificationSchema } from '../schemas/auth.js';
 
 const router = Router();
 
-// Routes publiques avec rate-limiting strict
-router.post('/register', authLimiter, register);
-router.post('/login', authLimiter, login);
+// Routes publiques avec rate-limiting strict + validation Zod
+router.post('/register', authLimiter, validate(registerSchema), register);
+router.post('/login', authLimiter, validate(loginSchema), login);
 
-// Vérification email (lien cliqué depuis la boîte mail)
+// Verification email (lien clique depuis la boite mail)
 router.get('/verify/:token', verifyEmail);
 
-// Renvoi du lien de vérification
-router.post('/resend-verification', authLimiter, resendVerification);
+// Renvoi du lien de verification
+router.post('/resend-verification', authLimiter, validate(resendVerificationSchema), resendVerification);
 
-// Route protégée — /me et /profile pointent vers le même contrôleur
+// Deconnexion (supprime le cookie httpOnly)
+router.post('/logout', logout);
+
+// Route protegee
 router.get('/me', authMiddleware, getProfile);
 router.get('/profile', authMiddleware, getProfile);
 

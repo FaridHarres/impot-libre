@@ -4,62 +4,38 @@ import jwt from 'jsonwebtoken';
 import pool from '../db.js';
 import { hashIP, hashFingerprint } from '../utils/hashFingerprint.js';
 import { sendVerificationEmail } from '../utils/mailer.js';
+import logger from '../utils/logger.js';
 
 const BCRYPT_ROUNDS = 12;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const NOM_REGEX = /^[a-zA-ZÀ-ÿ\s'-]{1,100}$/;
+const IS_PROD = process.env.NODE_ENV === 'production';
+const JWT_USER_EXPIRY = '1h';
+
+/**
+ * Helper : configure le cookie httpOnly contenant le JWT.
+ */
+function setTokenCookie(res, token, maxAgeMs = 60 * 60 * 1000) {
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: IS_PROD ? 'strict' : 'lax',
+    maxAge: maxAgeMs,
+    path: '/',
+  });
+}
 
 /**
  * Inscription d'un nouvel utilisateur.
  * POST /api/auth/register
+ * Body validé par Zod (middleware validate) avant d'arriver ici.
  */
 export async function register(req, res) {
   try {
     const { prenom, nom, email, password, resolution, language } = req.body;
 
-    // Validation des champs
-    if (!prenom || !nom || !email || !password) {
-      return res.status(400).json({
-        message: 'Tous les champs sont requis (prénom, nom, email, mot de passe).',
-        error: 'Tous les champs sont requis (prénom, nom, email, mot de passe).',
-      });
-    }
-
-    const prenomTrimmed = prenom.trim();
-    const nomTrimmed = nom.trim();
-
-    if (!NOM_REGEX.test(prenomTrimmed)) {
-      return res.status(400).json({
-        message: 'Le prénom contient des caractères non autorisés.',
-        error: 'Le prénom contient des caractères non autorisés.',
-      });
-    }
-
-    if (!NOM_REGEX.test(nomTrimmed)) {
-      return res.status(400).json({
-        message: 'Le nom contient des caractères non autorisés.',
-        error: 'Le nom contient des caractères non autorisés.',
-      });
-    }
-
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({
-        message: "Format d'email invalide.",
-        error: "Format d'email invalide.",
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        message: 'Le mot de passe doit contenir au moins 8 caractères.',
-        error: 'Le mot de passe doit contenir au moins 8 caractères.',
-      });
-    }
-
     // Vérifier si l'email existe déjà
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE email = $1',
-      [email.toLowerCase().trim()]
+      [email]
     );
 
     if (existingUser.rows.length > 0) {
@@ -70,7 +46,7 @@ export async function register(req, res) {
     }
 
     // Calcul des empreintes pour la détection de doublons
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const ip = req.ip || '';
     const userAgent = req.headers['user-agent'] || '';
     const ipHash = hashIP(ip);
     const fpHash = hashFingerprint(ip, userAgent, resolution || '', language || '');
@@ -82,6 +58,7 @@ export async function register(req, res) {
     );
 
     if (duplicateCheck.rows.length > 0) {
+      logger.warn('DOUBLON_INSCRIPTION', { ip_hash: ipHash, email });
       return res.status(409).json({
         message: 'Un compte a déjà été créé depuis ce navigateur. Un seul compte par personne est autorisé.',
         error: 'Un compte a déjà été créé depuis ce navigateur. Un seul compte par personne est autorisé.',
@@ -101,17 +78,18 @@ export async function register(req, res) {
                           email_verified, verify_token, verify_expires)
        VALUES ($1, $2, $3, $4, $5, $6, 'user', FALSE, $7, $8)
        RETURNING id, prenom, nom, email, role, email_verified, created_at`,
-      [prenomTrimmed, nomTrimmed, email.toLowerCase().trim(), passwordHash, ipHash, fpHash, verifyToken, verifyExpires]
+      [prenom.trim(), nom.trim(), email, passwordHash, ipHash, fpHash, verifyToken, verifyExpires]
     );
 
     const user = result.rows[0];
+
+    logger.info('INSCRIPTION', { userId: user.id, email: user.email });
 
     // Envoyer l'email de confirmation
     try {
       await sendVerificationEmail(user.email, user.prenom, verifyToken);
     } catch (emailErr) {
-      console.error('[AUTH] Erreur envoi email de vérification :', emailErr);
-      // On ne bloque pas l'inscription, l'utilisateur pourra redemander le lien
+      logger.error('ERREUR_EMAIL_VERIFICATION', { userId: user.id, error: emailErr.message });
     }
 
     return res.status(201).json({
@@ -126,7 +104,7 @@ export async function register(req, res) {
       },
     });
   } catch (err) {
-    console.error("[AUTH] Erreur lors de l'inscription :", err);
+    logger.error('ERREUR_INSCRIPTION', { error: err.message });
     return res.status(500).json({
       message: 'Erreur interne du serveur.',
       error: 'Erreur interne du serveur.',
@@ -143,10 +121,8 @@ export async function verifyEmail(req, res) {
     const { token } = req.params;
 
     if (!token || token.length !== 64) {
-      return res.status(400).json({
-        message: 'Lien de vérification invalide.',
-        error: 'Lien de vérification invalide.',
-      });
+      const baseUrl = process.env.FRONTEND_URL || 'https://impot-libre.fr';
+      return res.redirect(`${baseUrl}/connexion?verify_error=true`);
     }
 
     const result = await pool.query(
@@ -156,7 +132,6 @@ export async function verifyEmail(req, res) {
     );
 
     if (result.rows.length === 0) {
-      // Rediriger avec erreur
       const baseUrl = process.env.FRONTEND_URL || 'https://impot-libre.fr';
       return res.redirect(`${baseUrl}/connexion?verify_error=true`);
     }
@@ -168,11 +143,12 @@ export async function verifyEmail(req, res) {
       [result.rows[0].id]
     );
 
-    // Rediriger vers la page de connexion avec succès
+    logger.info('EMAIL_VERIFIE', { userId: result.rows[0].id, email: result.rows[0].email });
+
     const baseUrl = process.env.FRONTEND_URL || 'https://impot-libre.fr';
     return res.redirect(`${baseUrl}/connexion?verified=true`);
   } catch (err) {
-    console.error("[AUTH] Erreur vérification email :", err);
+    logger.error('ERREUR_VERIFICATION_EMAIL', { error: err.message });
     return res.status(500).json({
       message: 'Erreur interne du serveur.',
       error: 'Erreur interne du serveur.',
@@ -198,11 +174,11 @@ export async function resendVerification(req, res) {
       [email.toLowerCase().trim()]
     );
 
+    // Réponse identique que l'email existe ou non (anti-énumération)
+    const genericMessage = 'Si un compte non vérifié existe avec cet email, un nouveau lien a été envoyé.';
+
     if (result.rows.length === 0) {
-      // Ne pas révéler si l'email existe ou non
-      return res.json({
-        message: 'Si un compte non vérifié existe avec cet email, un nouveau lien a été envoyé.',
-      });
+      return res.json({ message: genericMessage });
     }
 
     const user = result.rows[0];
@@ -217,14 +193,12 @@ export async function resendVerification(req, res) {
     try {
       await sendVerificationEmail(user.email, user.prenom, verifyToken);
     } catch (emailErr) {
-      console.error('[AUTH] Erreur renvoi email :', emailErr);
+      logger.error('ERREUR_RENVOI_EMAIL', { userId: user.id, error: emailErr.message });
     }
 
-    return res.json({
-      message: 'Si un compte non vérifié existe avec cet email, un nouveau lien a été envoyé.',
-    });
+    return res.json({ message: genericMessage });
   } catch (err) {
-    console.error('[AUTH] Erreur resend verification :', err);
+    logger.error('ERREUR_RESEND_VERIFICATION', { error: err.message });
     return res.status(500).json({
       message: 'Erreur interne du serveur.',
       error: 'Erreur interne du serveur.',
@@ -235,22 +209,16 @@ export async function resendVerification(req, res) {
 /**
  * Connexion d'un utilisateur existant.
  * POST /api/auth/login
+ * Body validé par Zod (middleware validate) avant d'arriver ici.
  */
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: 'Email et mot de passe requis.',
-        error: 'Email et mot de passe requis.',
-      });
-    }
-
-    // Rechercher l'utilisateur
+    // Rechercher l'utilisateur (sélection explicite — jamais de *)
     const result = await pool.query(
       'SELECT id, prenom, nom, email, password_hash, role, email_verified FROM users WHERE email = $1',
-      [email.toLowerCase().trim()]
+      [email]
     );
 
     if (result.rows.length === 0) {
@@ -265,6 +233,7 @@ export async function login(req, res) {
     // Vérification du mot de passe
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
+      logger.warn('TENTATIVE_LOGIN_ECHEC', { email, ip: req.ip });
       return res.status(401).json({
         message: 'Identifiants incorrects.',
         error: 'Identifiants incorrects.',
@@ -274,22 +243,27 @@ export async function login(req, res) {
     // Vérifier que l'email est confirmé (sauf admin, qui passe par le 2FA)
     if (user.role !== 'admin' && !user.email_verified) {
       return res.status(403).json({
-        message: 'Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte mail.',
+        message: 'Veuillez confirmer votre adresse email avant de vous connecter.',
         error: 'email_not_verified',
-        email: user.email,
+        // NE PAS renvoyer l'email dans la réponse (anti-énumération)
       });
     }
 
-    // Génération du JWT
+    // Génération du JWT (1h pour les users)
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: JWT_USER_EXPIRY }
     );
+
+    // Stocker le JWT dans un cookie httpOnly
+    setTokenCookie(res, token, 60 * 60 * 1000); // 1h
+
+    logger.info('CONNEXION', { userId: user.id, role: user.role, ip: req.ip });
 
     return res.json({
       message: 'Connexion réussie.',
-      token,
+      token, // Garder temporairement pour compatibilité frontend pendant la migration
       user: {
         id: user.id,
         prenom: user.prenom,
@@ -300,7 +274,7 @@ export async function login(req, res) {
       },
     });
   } catch (err) {
-    console.error('[AUTH] Erreur lors de la connexion :', err);
+    logger.error('ERREUR_LOGIN', { error: err.message });
     return res.status(500).json({
       message: 'Erreur interne du serveur.',
       error: 'Erreur interne du serveur.',
@@ -309,11 +283,26 @@ export async function login(req, res) {
 }
 
 /**
+ * Déconnexion — supprime le cookie httpOnly.
+ * POST /api/auth/logout
+ */
+export async function logout(_req, res) {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: IS_PROD ? 'strict' : 'lax',
+    path: '/',
+  });
+  return res.json({ message: 'Déconnexion réussie.' });
+}
+
+/**
  * Récupération du profil de l'utilisateur connecté.
- * GET /api/auth/me  |  GET /api/auth/profile
+ * GET /api/auth/me
  */
 export async function getProfile(req, res) {
   try {
+    // Sélection explicite — jamais de password_hash, otp, tokens, etc.
     const result = await pool.query(
       'SELECT id, prenom, nom, email, role, email_verified, created_at FROM users WHERE id = $1',
       [req.user.id]
@@ -328,7 +317,7 @@ export async function getProfile(req, res) {
 
     return res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error('[AUTH] Erreur lors de la récupération du profil :', err);
+    logger.error('ERREUR_PROFIL', { userId: req.user?.id, error: err.message });
     return res.status(500).json({
       message: 'Erreur interne du serveur.',
       error: 'Erreur interne du serveur.',

@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node --watch app.js",
-    "db:init": "psql $DATABASE_URL -f schema.sql"
+    "db:init": "psql $DATABASE_URL -f schema.sql",
+    "create-admin": "node scripts/createAdmin.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

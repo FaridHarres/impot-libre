@@ -35,12 +35,8 @@ export default function Register() {
 
   const validate = () => {
     const errs = {};
-    if (!form.prenom.trim()) {
-      errs.prenom = 'Le prénom est requis.';
-    }
-    if (!form.nom.trim()) {
-      errs.nom = 'Le nom est requis.';
-    }
+    if (!form.prenom.trim()) errs.prenom = 'Le prénom est requis.';
+    if (!form.nom.trim()) errs.nom = 'Le nom est requis.';
     if (!form.email.trim()) {
       errs.email = "L'adresse e-mail est requise.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
@@ -87,7 +83,6 @@ export default function Register() {
         fingerprint,
       });
 
-      // Subscribe to newsletter if opted in
       if (form.newsletter) {
         try {
           await api.post('/newsletter/subscribe', { email: form.email });
@@ -96,13 +91,11 @@ export default function Register() {
         }
       }
 
-      // NE PAS auto-login — l'utilisateur doit d'abord confirmer son email
       setSuccess(true);
     } catch (err) {
       let msg =
         err.response?.data?.message ||
         "Une erreur est survenue lors de l'inscription. Veuillez réessayer.";
-      // Afficher les détails de validation Zod si disponibles
       const details = err.response?.data?.details?.fieldErrors;
       if (details) {
         const firstField = Object.keys(details)[0];
@@ -116,7 +109,7 @@ export default function Register() {
     }
   };
 
-  // ─── Écran de succès (email envoyé) ───
+  // Success screen
   if (success) {
     return (
       <>
@@ -124,32 +117,26 @@ export default function Register() {
           <title>Vérifiez votre email — Impôt Libre</title>
         </Helmet>
         <section className="min-h-[70vh] flex items-center justify-center py-12 px-4">
-          <div className="w-full max-w-md text-center">
-            <div className="flex gap-0.5 mb-6 justify-center">
-              <div className="w-8 h-1 bg-bleu-republique rounded-sm" />
-              <div className="w-8 h-1 bg-white border border-gris-bordure rounded-sm" />
-              <div className="w-8 h-1 bg-rouge-marianne rounded-sm" />
-            </div>
-
-            <div className="bg-white border border-gris-bordure rounded-sm p-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-bleu-republique/10 rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-bleu-republique" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-full max-w-md text-center animate-fade-in">
+            <div className="bg-white border border-gris-bordure rounded-xl p-8 shadow-card">
+              <div className="w-16 h-16 mx-auto mb-4 bg-accent/10 rounded-2xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold text-texte mb-3">
+              <h1 className="text-xl font-bold text-primary mb-3">
                 Vérifiez votre boîte mail
               </h1>
               <p className="text-sm text-gris-texte leading-relaxed mb-4">
-                Un email de confirmation a été envoyé à <strong className="text-texte">{form.email}</strong>.
+                Un email de confirmation a été envoyé à <strong className="text-primary">{form.email}</strong>.
                 Cliquez sur le lien dans l&apos;email pour activer votre compte.
               </p>
-              <p className="text-xs text-gris-texte mb-6">
+              <p className="text-xs text-gris-texte/60 mb-6">
                 Le lien est valable 24 heures. Pensez à vérifier vos spams.
               </p>
               <Link
                 to="/connexion"
-                className="inline-block px-6 py-2 text-sm font-medium text-white bg-bleu-republique rounded-sm hover:bg-blue-900 transition-colors"
+                className="inline-block px-6 py-2.5 text-sm font-semibold text-white bg-accent rounded-md hover:bg-accent-500 transition-all shadow-button"
               >
                 Aller à la connexion
               </Link>
@@ -164,22 +151,15 @@ export default function Register() {
     <>
       <Helmet>
         <title>Inscription — Impôt Libre</title>
-        <meta name="description" content="Créez votre compte Impôt Libre pour répartir symboliquement vos impôts entre les ministères français." />
+        <meta name="description" content="Créez votre compte Impôt Libre pour répartir symboliquement vos impôts entre les pôles thématiques français." />
         <meta property="og:title" content="Inscription — Impôt Libre" />
         <meta property="og:description" content="Inscrivez-vous gratuitement et exprimez vos priorités budgétaires citoyennes." />
-        <link rel="canonical" href="https://impot-libre.fr/inscription" />
+        <link rel="canonical" href="https://www.impot-libre.fr/inscription" />
       </Helmet>
 
       <section className="min-h-[70vh] flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-md">
-          {/* Tricolor accent */}
-          <div className="flex gap-0.5 mb-6 justify-center">
-            <div className="w-8 h-1 bg-bleu-republique rounded-sm" />
-            <div className="w-8 h-1 bg-white border border-gris-bordure rounded-sm" />
-            <div className="w-8 h-1 bg-rouge-marianne rounded-sm" />
-          </div>
-
-          <h1 className="text-2xl font-bold text-texte text-center mb-2">
+        <div className="w-full max-w-md animate-fade-in">
+          <h1 className="text-2xl font-extrabold text-primary text-center mb-2 tracking-tight">
             Créer un compte
           </h1>
           <p className="text-sm text-gris-texte text-center mb-8">
@@ -187,13 +167,12 @@ export default function Register() {
           </p>
 
           {globalError && (
-            <div className="mb-6 p-3 bg-rouge-marianne/10 border border-rouge-marianne rounded-sm">
-              <p className="text-sm text-rouge-marianne">{globalError}</p>
+            <div className="mb-6 p-4 bg-danger/5 border border-danger/20 rounded-xl">
+              <p className="text-sm text-danger font-medium">{globalError}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="bg-white border border-gris-bordure rounded-sm p-6">
-            {/* Prénom et Nom côte à côte */}
+          <form onSubmit={handleSubmit} className="bg-white border border-gris-bordure rounded-xl p-6 shadow-card">
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="Prénom"
@@ -240,16 +219,16 @@ export default function Register() {
             />
             {form.password && (
               <div className="mb-3 -mt-2 text-xs space-y-0.5">
-                <p className={form.password.length >= 12 ? 'text-succes' : 'text-gris-texte'}>
+                <p className={form.password.length >= 12 ? 'text-success' : 'text-gris-texte'}>
                   {form.password.length >= 12 ? '✓' : '○'} 12 caractères minimum
                 </p>
-                <p className={/[A-Z]/.test(form.password) ? 'text-succes' : 'text-gris-texte'}>
+                <p className={/[A-Z]/.test(form.password) ? 'text-success' : 'text-gris-texte'}>
                   {/[A-Z]/.test(form.password) ? '✓' : '○'} Une majuscule
                 </p>
-                <p className={/[0-9]/.test(form.password) ? 'text-succes' : 'text-gris-texte'}>
+                <p className={/[0-9]/.test(form.password) ? 'text-success' : 'text-gris-texte'}>
                   {/[0-9]/.test(form.password) ? '✓' : '○'} Un chiffre
                 </p>
-                <p className={/[^a-zA-Z0-9]/.test(form.password) ? 'text-succes' : 'text-gris-texte'}>
+                <p className={/[^a-zA-Z0-9]/.test(form.password) ? 'text-success' : 'text-gris-texte'}>
                   {/[^a-zA-Z0-9]/.test(form.password) ? '✓' : '○'} Un caractère spécial (!@#$...)
                 </p>
               </div>
@@ -266,7 +245,7 @@ export default function Register() {
               required
             />
 
-            {/* Newsletter opt-in */}
+            {/* Newsletter */}
             <div className="mb-4">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -274,7 +253,7 @@ export default function Register() {
                   name="newsletter"
                   checked={form.newsletter}
                   onChange={handleChange}
-                  className="mt-0.5 h-4 w-4 rounded-sm border-gris-bordure text-bleu-republique focus:ring-bleu-republique"
+                  className="mt-0.5 h-4 w-4 rounded border-gris-bordure text-accent focus:ring-accent"
                 />
                 <span className="text-sm text-gris-texte leading-relaxed">
                   Je souhaite recevoir la lettre d&apos;information d&apos;Impôt Libre
@@ -283,7 +262,7 @@ export default function Register() {
               </label>
             </div>
 
-            {/* RGPD consent */}
+            {/* RGPD */}
             <div className="mb-6">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -291,21 +270,21 @@ export default function Register() {
                   name="rgpd"
                   checked={form.rgpd}
                   onChange={handleChange}
-                  className="mt-0.5 h-4 w-4 rounded-sm border-gris-bordure text-bleu-republique focus:ring-bleu-republique"
+                  className="mt-0.5 h-4 w-4 rounded border-gris-bordure text-accent focus:ring-accent"
                 />
                 <span className="text-sm text-gris-texte leading-relaxed">
                   J&apos;accepte que mes données soient traitées de manière anonyme
                   conformément à la{' '}
-                  <Link to="/mentions-legales" className="text-bleu-republique underline">
+                  <Link to="/mentions-legales" className="text-accent hover:text-accent-600 font-medium">
                     politique de confidentialité
                   </Link>
                   . Aucune donnée personnelle n&apos;est transmise à des tiers
                   ou à l&apos;administration fiscale.
-                  <span className="text-rouge-marianne ml-0.5">*</span>
+                  <span className="text-danger ml-0.5">*</span>
                 </span>
               </label>
               {errors.rgpd && (
-                <p className="mt-1 ml-7 text-xs text-rouge-marianne" role="alert">
+                <p className="mt-1 ml-7 text-xs text-danger" role="alert">
                   {errors.rgpd}
                 </p>
               )}
@@ -318,15 +297,14 @@ export default function Register() {
 
           <p className="text-sm text-gris-texte text-center mt-6">
             Déjà inscrit ?{' '}
-            <Link to="/connexion" className="text-bleu-republique font-medium hover:underline">
+            <Link to="/connexion" className="text-accent font-semibold hover:text-accent-600 transition-colors">
               Se connecter
             </Link>
           </p>
 
-          <p className="text-xs text-gris-texte text-center mt-6 leading-relaxed">
-            Vos données sont protégées conformément au Règlement Général
-            sur la Protection des Données (RGPD). Une empreinte numérique
-            anonyme est générée pour prévenir les doublons.
+          <p className="text-xs text-gris-texte/60 text-center mt-6 leading-relaxed">
+            Vos données sont protégées conformément au RGPD.
+            Une empreinte numérique anonyme est générée pour prévenir les doublons.
           </p>
         </div>
       </section>

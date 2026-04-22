@@ -2,45 +2,51 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="bg-bleu-republique text-white mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+    <footer className="bg-primary text-white mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5">
+            <div className="flex gap-[3px] h-6">
+              <div className="w-[4px] bg-white/80 rounded-full" />
+              <div className="w-[4px] bg-white/40 rounded-full" />
+              <div className="w-[4px] bg-danger/80 rounded-full" />
+            </div>
+            <span className="text-base font-bold tracking-tight text-white/90">
+              Impôt Libre
+            </span>
+          </div>
+
           {/* Links */}
-          <nav className="flex flex-wrap items-center justify-center gap-4 text-sm">
+          <nav className="flex flex-wrap items-center justify-center gap-6 text-sm">
             <Link
               to="/mentions-legales"
-              className="hover:underline text-white/80 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
-              Mentions legales
+              Mentions légales
             </Link>
-            <span className="hidden md:inline text-white/40">|</span>
             <Link
               to="/confidentialite"
-              className="hover:underline text-white/80 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
-              Politique de confidentialite
+              Confidentialité
             </Link>
-            <span className="hidden md:inline text-white/40">|</span>
             <Link
               to="/cgu"
-              className="hover:underline text-white/80 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
               CGU
             </Link>
           </nav>
 
           {/* Tagline */}
-          <p className="text-sm text-white/60">
-            Un projet citoyen &mdash; impot-libre.fr
+          <p className="text-sm text-white/40">
+            Un projet citoyen
           </p>
         </div>
 
-        {/* Bottom border tricolor */}
-        <div className="flex mt-6">
-          <div className="h-1 flex-1 bg-[#003189]" />
-          <div className="h-1 flex-1 bg-white" />
-          <div className="h-1 flex-1 bg-rouge-marianne" />
-        </div>
+        {/* Bottom accent line */}
+        <div className="mt-8 h-[2px] rounded-full bg-gradient-to-r from-accent via-white/20 to-success opacity-40" />
       </div>
     </footer>
   );

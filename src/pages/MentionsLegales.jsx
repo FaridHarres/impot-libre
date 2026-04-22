@@ -18,41 +18,10 @@ export default function MentionsLegales() {
           Mentions legales
         </h1>
 
-        {/* Editeur */}
-        <section className="mb-10">
-          <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            1. Editeur du site
-          </h2>
-          <div className="text-sm text-gris-texte leading-relaxed space-y-2">
-            <p>Le site <strong>impot-libre.fr</strong> est un projet citoyen a but non lucratif.</p>
-            <p>Editeur : Association Impot Libre (a completer)</p>
-            <p>Adresse : (a completer)</p>
-            <p>E-mail : contact@impot-libre.fr</p>
-            <p>Directeur de la publication : (a completer)</p>
-          </div>
-        </section>
-
-        {/* Hebergement */}
-        <section className="mb-10">
-          <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            2. Hebergement
-          </h2>
-          <div className="text-sm text-gris-texte leading-relaxed space-y-2">
-            <p>Hebergeur : (a completer)</p>
-            <p>Adresse : (a completer)</p>
-            <p>Telephone : (a completer)</p>
-            <p>
-              Conformement a la loi n&deg; 2004-575 du 21 juin 2004 pour la confiance dans
-              l&apos;economie numerique, les elements d&apos;identification de l&apos;hebergeur
-              sont communiques sur demande aupres de l&apos;editeur.
-            </p>
-          </div>
-        </section>
-
         {/* RGPD */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            3. Protection des donnees personnelles (RGPD)
+            1. Protection des donnees personnelles (RGPD)
           </h2>
           <div className="text-sm text-gris-texte leading-relaxed space-y-3">
             <p>
@@ -110,7 +79,7 @@ export default function MentionsLegales() {
         {/* Cookies */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            4. Politique de cookies
+            2. Politique de cookies
           </h2>
           <div className="text-sm text-gris-texte leading-relaxed space-y-3">
             <p>
@@ -119,8 +88,8 @@ export default function MentionsLegales() {
             </p>
             <ul className="list-disc pl-5 space-y-1">
               <li>
-                <strong>Cookie d&apos;authentification :</strong> jeton de session (JWT) stocke dans
-                le localStorage du navigateur, permettant de maintenir votre connexion.
+                <strong>Cookie de session :</strong> permet de maintenir votre connexion
+                pendant votre visite.
               </li>
               <li>
                 <strong>Cookie technique :</strong> empreinte anonyme utilisee pour la prevention
@@ -137,7 +106,7 @@ export default function MentionsLegales() {
         {/* Conservation */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            5. Duree de conservation des donnees
+            3. Duree de conservation des donnees
           </h2>
           <div className="text-sm text-gris-texte leading-relaxed space-y-2">
             <p>Les donnees personnelles sont conservees pour les durees suivantes :</p>
@@ -166,7 +135,7 @@ export default function MentionsLegales() {
         {/* Contact */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            6. Contact
+            4. Contact
           </h2>
           <div className="text-sm text-gris-texte leading-relaxed space-y-2">
             <p>
@@ -185,7 +154,7 @@ export default function MentionsLegales() {
         {/* Disclaimer */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            7. Avertissement
+            5. Avertissement
           </h2>
           <div className="text-sm text-gris-texte leading-relaxed space-y-3">
             <div className="bg-avertissement/10 border border-avertissement rounded-sm p-4">
@@ -211,7 +180,7 @@ export default function MentionsLegales() {
         {/* Propriete intellectuelle */}
         <section className="mb-10">
           <h2 className="text-lg font-semibold text-texte mb-3 pb-2 border-b border-gris-bordure">
-            8. Propriete intellectuelle
+            6. Propriete intellectuelle
           </h2>
           <div className="text-sm text-gris-texte leading-relaxed">
             <p>

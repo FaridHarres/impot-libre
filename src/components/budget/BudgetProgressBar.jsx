@@ -1,42 +1,26 @@
 import { useState } from 'react';
 import useBudget from '../../hooks/useBudget';
 
-// Deterministic color palette for ministry segments
-const SEGMENT_COLORS = [
-  '#003189', '#E1000F', '#18753C', '#B34000', '#6A28C7',
-  '#00838F', '#C62828', '#2E7D32', '#EF6C00', '#4527A0',
-  '#00695C', '#AD1457', '#1565C0', '#F9A825', '#6D4C41',
-  '#546E7A', '#D84315', '#1B5E20', '#0277BD', '#7B1FA2',
+const POLE_COLORS = [
+  '#3B82F6', '#F43F5E', '#10B981', '#F59E0B',
+  '#22C55E', '#0EA5E9', '#A855F7', '#64748B',
 ];
 
-/**
- * Génère une abréviation courte à partir du nom complet du ministère.
- * Ex: "Éducation nationale" → "Éduc.", "Outre-Mer" → "O-M."
- */
-function getAbbreviation(name) {
-  if (!name) return '?';
-  // Prendre le premier mot, tronquer à 5 caractères + "."
-  const firstWord = name.split(/[\s,]+/)[0];
-  if (firstWord.length <= 5) return firstWord;
-  return firstWord.substring(0, 4) + '.';
-}
-
 export default function BudgetProgressBar() {
-  const { ministries, total } = useBudget();
+  const { poles, total } = useBudget();
   const [tooltip, setTooltip] = useState(null);
 
-  // Only show ministries with percentage > 0
-  const activeMinistries = ministries.filter((m) => m.percentage > 0);
+  const activePoles = poles.filter((p) => p.percentage > 0);
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-texte">
-          Repartition globale
+    <div className="mb-5">
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="text-sm font-semibold text-primary">
+          Répartition globale
         </span>
         <span
-          className={`text-sm font-semibold ${
-            Math.abs(total - 100) < 0.01 ? 'text-succes' : 'text-rouge-marianne'
+          className={`text-sm font-bold ${
+            Math.abs(total - 100) < 0.01 ? 'text-success' : 'text-danger'
           }`}
         >
           {total.toFixed(1)} %
@@ -44,29 +28,28 @@ export default function BudgetProgressBar() {
       </div>
 
       {/* Stacked bar */}
-      <div className="relative w-full h-8 bg-gris-bordure rounded-sm overflow-hidden flex">
-        {activeMinistries.map((m, i) => {
-          const widthPct = total > 0 ? (m.percentage / total) * 100 : 0;
-          const abbr = getAbbreviation(m.name);
-          const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+      <div className="relative w-full h-8 bg-primary-50 rounded-lg overflow-hidden flex">
+        {activePoles.map((p, i) => {
+          const widthPct = total > 0 ? (p.percentage / total) * 100 : 0;
+          const color = POLE_COLORS[i % POLE_COLORS.length];
 
           return (
             <div
-              key={m.id}
-              className="h-full flex items-center justify-center overflow-hidden relative cursor-pointer transition-opacity hover:opacity-90"
+              key={p.id}
+              className="h-full flex items-center justify-center overflow-hidden relative cursor-pointer transition-all duration-300 hover:brightness-110"
               style={{
                 width: `${widthPct}%`,
                 backgroundColor: color,
-                minWidth: widthPct > 0 ? '2px' : '0',
+                minWidth: widthPct > 0 ? '3px' : '0',
               }}
               onMouseEnter={() =>
-                setTooltip({ id: m.id, name: m.name, pct: m.percentage })
+                setTooltip({ id: p.id, name: p.name, emoji: p.emoji, pct: p.percentage })
               }
               onMouseLeave={() => setTooltip(null)}
             >
-              {widthPct > 4 && (
-                <span className="text-[10px] font-medium text-white truncate px-0.5">
-                  {abbr}
+              {widthPct > 6 && (
+                <span className="text-[10px] font-semibold text-white truncate px-1">
+                  {p.emoji}
                 </span>
               )}
             </div>
@@ -76,27 +59,28 @@ export default function BudgetProgressBar() {
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="mt-1 inline-flex items-center gap-2 bg-white border border-gris-bordure rounded-sm px-3 py-1.5 shadow-sm text-xs text-texte">
-          <span className="font-medium">{tooltip.name}</span>
-          <span className="text-bleu-republique font-semibold">
+        <div className="mt-2 inline-flex items-center gap-2 bg-white border border-gris-bordure rounded-lg px-3 py-2 shadow-card text-xs text-texte animate-fade-in">
+          <span className="text-base">{tooltip.emoji}</span>
+          <span className="font-semibold">{tooltip.name}</span>
+          <span className="text-accent font-bold">
             {tooltip.pct.toFixed(1)} %
           </span>
         </div>
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
-        {activeMinistries.map((m, i) => {
-          const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
-          const abbr = getAbbreviation(m.name);
-
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+        {activePoles.map((p, i) => {
+          const color = POLE_COLORS[i % POLE_COLORS.length];
           return (
-            <div key={m.id} className="flex items-center gap-1">
+            <div key={p.id} className="flex items-center gap-1.5">
               <div
-                className="w-2.5 h-2.5 rounded-sm shrink-0"
+                className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: color }}
               />
-              <span className="text-[10px] text-gris-texte">{abbr}</span>
+              <span className="text-[11px] text-gris-texte font-medium">
+                {p.emoji} {p.name}
+              </span>
             </div>
           );
         })}

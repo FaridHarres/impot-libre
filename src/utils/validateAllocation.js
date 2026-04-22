@@ -1,34 +1,34 @@
 const TOLERANCE = 0.01;
 
-export function validateAllocation(ministries) {
+export function validateAllocation(poles) {
   const errors = [];
 
-  if (!ministries || !Array.isArray(ministries) || ministries.length === 0) {
-    errors.push('Aucun ministere fourni.');
-    return { valid: false, errors };
+  if (!poles || !Array.isArray(poles) || poles.length === 0) {
+    errors.push('Aucun pôle fourni.');
+    return { valid: false, isValid: false, errors };
   }
 
-  const total = ministries.reduce((sum, m) => sum + (m.percentage || 0), 0);
+  const total = poles.reduce((sum, p) => sum + (p.percentage || 0), 0);
 
   if (Math.abs(total - 100) > TOLERANCE) {
     errors.push(
-      `Le total des allocations doit etre egal a 100 %. Actuellement : ${total.toFixed(2)} %.`
+      `Le total des allocations doit être égal à 100%. Actuellement : ${total.toFixed(2)}%.`
     );
   }
 
-  for (const ministry of ministries) {
-    if (ministry.percentage < 0) {
+  for (const pole of poles) {
+    if (pole.percentage < 0) {
       errors.push(
-        `Le pourcentage pour "${ministry.name}" ne peut pas etre negatif.`
+        `Le pourcentage pour « ${pole.name} » ne peut pas être négatif.`
       );
     }
 
     if (
-      ministry.minimum !== undefined &&
-      ministry.percentage < ministry.minimum - TOLERANCE
+      pole.minimum !== undefined &&
+      pole.percentage < pole.minimum - TOLERANCE
     ) {
       errors.push(
-        `Le ministere "${ministry.name}" requiert un minimum de ${ministry.minimum} %. Actuellement : ${ministry.percentage.toFixed(2)} %.`
+        `Le pôle « ${pole.name} » requiert un minimum de ${pole.minimum}%. Actuellement : ${pole.percentage.toFixed(2)}%.`
       );
     }
   }
@@ -41,9 +41,9 @@ export function validateAllocation(ministries) {
   };
 }
 
-export function getRemainingPercentage(ministries) {
-  if (!ministries || !Array.isArray(ministries)) return 100;
-  const total = ministries.reduce((sum, m) => sum + (m.percentage || 0), 0);
+export function getRemainingPercentage(poles) {
+  if (!poles || !Array.isArray(poles)) return 100;
+  const total = poles.reduce((sum, p) => sum + (p.percentage || 0), 0);
   return parseFloat((100 - total).toFixed(2));
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
@@ -8,8 +8,11 @@ import Input from '../components/ui/Input';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const redirectTo = location.state?.redirect || null;
+  const stateMessage = location.state?.message || null;
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
@@ -21,7 +24,6 @@ export default function Login() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendDone, setResendDone] = useState(false);
 
-  // Gérer les paramètres d'URL
   useEffect(() => {
     if (searchParams.get('verified') === 'true') {
       setSuccessMessage('Votre adresse email a été confirmée avec succès ! Vous pouvez maintenant vous connecter.');
@@ -29,7 +31,11 @@ export default function Login() {
     if (searchParams.get('verify_error') === 'true') {
       setGlobalError('Le lien de vérification est invalide ou expiré. Veuillez demander un nouveau lien.');
     }
-  }, [searchParams]);
+    // Message from protected route redirect
+    if (stateMessage && !successMessage && !globalError) {
+      setSuccessMessage(stateMessage);
+    }
+  }, [searchParams, stateMessage]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -61,14 +67,12 @@ export default function Login() {
     setShowResend(false);
     try {
       const userData = await login(form.email, form.password);
-      // Rediriger les admins vers le tableau de bord admin
       if (userData?.role === 'admin') {
         navigate('/admin', { replace: true });
       } else {
-        navigate('/repartition', { replace: true });
+        navigate(redirectTo || '/repartition', { replace: true });
       }
     } catch (err) {
-      // Vérifier si c'est une erreur d'email non vérifié
       const errorCode = err.response?.data?.error || err.errorCode;
       if (errorCode === 'email_not_verified') {
         setGlobalError('Veuillez confirmer votre adresse email avant de vous connecter. Vérifiez votre boîte mail.');
@@ -91,7 +95,6 @@ export default function Login() {
       await api.post('/auth/resend-verification', { email: resendEmail });
       setResendDone(true);
     } catch {
-      // Silencieux par design (ne pas révéler si l'email existe)
       setResendDone(true);
     } finally {
       setResendLoading(false);
@@ -102,58 +105,54 @@ export default function Login() {
     <>
       <Helmet>
         <title>Connexion — Impôt Libre</title>
-        <meta name="description" content="Connectez-vous à votre compte Impôt Libre pour répartir vos impôts entre les ministères." />
+        <meta name="description" content="Connectez-vous à votre compte Impôt Libre pour répartir vos impôts entre les pôles thématiques." />
         <meta property="og:title" content="Connexion — Impôt Libre" />
         <meta property="og:description" content="Connectez-vous pour exprimer vos priorités budgétaires citoyennes." />
-        <link rel="canonical" href="https://impot-libre.fr/connexion" />
+        <link rel="canonical" href="https://www.impot-libre.fr/connexion" />
       </Helmet>
 
       <section className="min-h-[70vh] flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-md">
-          {/* Tricolor accent */}
-          <div className="flex gap-0.5 mb-6 justify-center">
-            <div className="w-8 h-1 bg-bleu-republique rounded-sm" />
-            <div className="w-8 h-1 bg-white border border-gris-bordure rounded-sm" />
-            <div className="w-8 h-1 bg-rouge-marianne rounded-sm" />
-          </div>
-
-          <h1 className="text-2xl font-bold text-texte text-center mb-2">
+        <div className="w-full max-w-md animate-fade-in">
+          <h1 className="text-2xl font-extrabold text-primary text-center mb-2 tracking-tight">
             Connexion
           </h1>
           <p className="text-sm text-gris-texte text-center mb-8">
             Accédez à votre espace pour répartir vos impôts.
           </p>
 
-          {/* Message de succès (email vérifié) */}
           {successMessage && (
-            <div className="mb-6 p-3 bg-green-50 border border-green-500 rounded-sm">
-              <p className="text-sm text-green-700">{successMessage}</p>
+            <div className={`mb-6 p-4 rounded-xl border ${
+              stateMessage && successMessage === stateMessage
+                ? 'bg-accent/5 border-accent/20'
+                : 'bg-success/5 border-success/20'
+            }`}>
+              <p className={`text-sm font-medium ${
+                stateMessage && successMessage === stateMessage ? 'text-accent' : 'text-success'
+              }`}>{successMessage}</p>
             </div>
           )}
 
-          {/* Message d'erreur */}
           {globalError && (
-            <div className="mb-6 p-3 bg-rouge-marianne/10 border border-rouge-marianne rounded-sm">
-              <p className="text-sm text-rouge-marianne">{globalError}</p>
-              {/* Bouton de renvoi du lien de vérification */}
+            <div className="mb-6 p-4 bg-danger/5 border border-danger/20 rounded-xl">
+              <p className="text-sm text-danger font-medium">{globalError}</p>
               {showResend && !resendDone && (
                 <button
                   onClick={handleResendVerification}
                   disabled={resendLoading}
-                  className="mt-2 text-sm text-bleu-republique font-medium hover:underline cursor-pointer disabled:opacity-50"
+                  className="mt-2 text-sm text-accent font-semibold hover:text-accent-600 cursor-pointer disabled:opacity-50 transition-colors"
                 >
                   {resendLoading ? 'Envoi en cours...' : 'Renvoyer le lien de vérification'}
                 </button>
               )}
               {resendDone && (
-                <p className="mt-2 text-sm text-green-600">
+                <p className="mt-2 text-sm text-success font-medium">
                   Si un compte non vérifié existe, un nouveau lien a été envoyé.
                 </p>
               )}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="bg-white border border-gris-bordure rounded-sm p-6">
+          <form onSubmit={handleSubmit} className="bg-white border border-gris-bordure rounded-xl p-6 shadow-card">
             <Input
               label="Adresse e-mail"
               name="email"
@@ -183,16 +182,16 @@ export default function Login() {
 
           <p className="text-sm text-gris-texte text-center mt-6">
             Pas encore de compte ?{' '}
-            <Link to="/inscription" className="text-bleu-republique font-medium hover:underline">
+            <Link to="/inscription" className="text-accent font-semibold hover:text-accent-600 transition-colors">
               Créer un compte
             </Link>
           </p>
 
-          <p className="text-xs text-gris-texte text-center mt-6 leading-relaxed">
+          <p className="text-xs text-gris-texte/60 text-center mt-6 leading-relaxed">
             Vos données personnelles sont traitées conformément au RGPD.
             Aucune information n&apos;est transmise à des tiers.
             Consultez nos{' '}
-            <Link to="/mentions-legales" className="underline">
+            <Link to="/mentions-legales" className="text-accent hover:text-accent-600">
               mentions légales
             </Link>{' '}
             pour en savoir plus.

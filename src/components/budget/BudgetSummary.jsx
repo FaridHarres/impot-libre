@@ -8,38 +8,38 @@ export default function BudgetSummary({ taxAmount = 0, onSubmit, loading = false
 
   const hasTaxAmount = taxAmount > 0;
   const canSubmit = hasTaxAmount && isComplete;
-  const totalColor = isComplete ? 'text-succes' : 'text-rouge-marianne';
-  const remainingColor = remaining > 0 ? 'text-avertissement' : remaining < 0 ? 'text-rouge-marianne' : 'text-succes';
+  const totalColor = isComplete ? 'text-success' : 'text-danger';
+  const remainingColor = remaining > 0 ? 'text-warning' : remaining < 0 ? 'text-danger' : 'text-success';
 
   return (
-    <div className="bg-white border border-gris-bordure rounded-sm p-5">
-      <h3 className="text-lg font-semibold text-texte mb-4">Récapitulatif</h3>
+    <div className="bg-white border border-gris-bordure rounded-xl p-5 shadow-card">
+      <h3 className="text-lg font-bold text-primary mb-4">Récapitulatif</h3>
 
-      {/* Montant d'impôt — toujours affiché */}
-      <div className="flex items-center justify-between py-2 border-b border-gris-bordure">
+      {/* Montant d'impôt */}
+      <div className="flex items-center justify-between py-2.5 border-b border-gris-bordure/50">
         <span className="text-sm text-gris-texte">Montant d&apos;impôt</span>
-        <span className={`text-sm font-semibold ${hasTaxAmount ? 'text-texte' : 'text-rouge-marianne'}`}>
+        <span className={`text-sm font-semibold ${hasTaxAmount ? 'text-primary' : 'text-danger'}`}>
           {hasTaxAmount ? formatCurrency(taxAmount) : 'Non renseigné'}
         </span>
       </div>
 
       {/* Total alloué */}
-      <div className="flex items-center justify-between py-2 border-b border-gris-bordure">
+      <div className="flex items-center justify-between py-2.5 border-b border-gris-bordure/50">
         <span className="text-sm text-gris-texte">Total réparti</span>
         <span className={`text-sm font-semibold ${totalColor}`}>
           {total.toFixed(1)} %
         </span>
       </div>
 
-      {/* Reste à allouer */}
-      <div className="flex items-center justify-between py-2 border-b border-gris-bordure">
+      {/* Reste */}
+      <div className="flex items-center justify-between py-2.5 border-b border-gris-bordure/50">
         <span className="text-sm text-gris-texte">Restant à répartir</span>
         <span className={`text-sm font-semibold ${remainingColor}`}>
           {remaining.toFixed(1)} %
         </span>
       </div>
 
-      {/* Badge de statut */}
+      {/* Badge */}
       <div className="mt-3 mb-4">
         {!hasTaxAmount ? (
           <Badge variant="warning">Saisissez votre montant d&apos;impôt</Badge>
@@ -52,19 +52,19 @@ export default function BudgetSummary({ taxAmount = 0, onSubmit, loading = false
         )}
       </div>
 
-      {/* Erreurs de validation */}
+      {/* Validation errors */}
       {validation.errors && validation.errors.length > 0 && !isComplete && hasTaxAmount && (
-        <ul className="mb-4 space-y-1">
+        <ul className="mb-4 space-y-1.5">
           {validation.errors.map((err, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-rouge-marianne">
-              <span className="mt-0.5 shrink-0">&#x2022;</span>
+            <li key={i} className="flex items-start gap-2 text-xs text-danger">
+              <span className="mt-0.5 shrink-0 w-1.5 h-1.5 rounded-full bg-danger/60" />
               <span>{err}</span>
             </li>
           ))}
         </ul>
       )}
 
-      {/* Bouton Valider — actif UNIQUEMENT si montant renseigné ET total === 100% */}
+      {/* Submit */}
       <Button
         variant="primary"
         onClick={onSubmit}
@@ -75,8 +75,8 @@ export default function BudgetSummary({ taxAmount = 0, onSubmit, loading = false
         {!hasTaxAmount
           ? 'Saisissez votre impôt pour commencer'
           : isComplete
-            ? '✅ Valider ma répartition'
-            : `Valider (il reste ${remaining.toFixed(1)} % à allouer)`}
+            ? 'Valider ma répartition'
+            : `Valider (il reste ${remaining.toFixed(1)} %)`}
       </Button>
     </div>
   );

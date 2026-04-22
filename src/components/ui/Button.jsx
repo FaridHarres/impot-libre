@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 
 const VARIANTS = {
   primary:
-    'bg-bleu-republique text-white hover:bg-blue-900 focus:ring-bleu-republique disabled:bg-gray-400',
+    'bg-accent text-white hover:bg-accent-500 focus:ring-accent shadow-button hover:shadow-button-hover disabled:bg-gray-300 disabled:shadow-none',
   secondary:
-    'border-2 border-rouge-marianne text-rouge-marianne bg-transparent hover:bg-rouge-marianne hover:text-white focus:ring-rouge-marianne disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-transparent',
+    'border border-gris-bordure text-primary bg-white hover:bg-primary-50 hover:border-primary-200 focus:ring-accent disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-white',
   danger:
-    'bg-rouge-marianne text-white hover:bg-red-800 focus:ring-rouge-marianne disabled:bg-gray-400',
+    'bg-danger text-white hover:opacity-90 focus:ring-danger disabled:bg-gray-300',
+  ghost:
+    'text-primary bg-transparent hover:bg-primary-50 focus:ring-accent disabled:text-gray-400',
 };
 
 function Spinner() {
@@ -50,7 +52,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium rounded-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed ${variantClasses} ${className}`}
+      className={`inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed ${variantClasses} ${className}`}
     >
       {loading && <Spinner />}
       {children}

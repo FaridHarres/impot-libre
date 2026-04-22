@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import api from '../services/api';
-import { formatCurrency } from '../utils/formatCurrency';
 
-const BAR_COLORS = [
-  '#003189', '#E1000F', '#18753C', '#B34000', '#6A28C7',
-  '#00838F', '#C62828', '#2E7D32', '#EF6C00', '#4527A0',
-  '#00695C', '#AD1457', '#1565C0', '#F9A825', '#6D4C41',
-  '#546E7A', '#D84315', '#1B5E20', '#0277BD', '#7B1FA2',
+const POLE_COLORS = [
+  '#3B82F6', '#F43F5E', '#10B981', '#F59E0B',
+  '#22C55E', '#0EA5E9', '#A855F7', '#64748B',
 ];
 
 export default function Resultats() {
@@ -23,23 +20,11 @@ export default function Resultats() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Adapter aux noms de champs retournés par le backend :
-  // { total_allocations, ministeres: [{ ministere_name, moyenne, minimum, maximum, nombre_allocations }] }
   const totalParticipants = stats?.total_allocations || 0;
-  const sortedMinistries = stats?.ministeres
-    ? [...stats.ministeres]
-        .map((m) => ({
-          id: m.ministere_id,
-          name: m.ministere_name,
-          avg: parseFloat(m.moyenne) || 0,
-          min: parseFloat(m.minimum) || 0,
-          max: parseFloat(m.maximum) || 0,
-          count: m.nombre_allocations || 0,
-        }))
-        .sort((a, b) => b.avg - a.avg)
+  const sortedPoles = stats?.poles
+    ? [...stats.poles].sort((a, b) => b.moyenne - a.moyenne)
     : [];
-
-  const maxAvg = sortedMinistries.length > 0 ? sortedMinistries[0].avg : 1;
+  const maxAvg = sortedPoles.length > 0 ? sortedPoles[0].moyenne : 1;
 
   return (
     <>
@@ -47,7 +32,7 @@ export default function Resultats() {
         <title>Résultats nationaux — Impôt Libre</title>
         <meta
           name="description"
-          content="Découvrez les résultats agrégés des citoyens français sur la répartition de leurs impôts entre les ministères."
+          content="Découvrez les résultats agrégés des citoyens français sur la répartition de leurs impôts entre les pôles thématiques."
         />
         <meta property="og:title" content="Résultats nationaux — Impôt Libre" />
         <meta
@@ -55,87 +40,90 @@ export default function Resultats() {
           content="Les priorités budgétaires exprimées par les citoyens français sur impot-libre.fr."
         />
         <meta property="og:type" content="website" />
-        <link rel="canonical" href="https://impot-libre.fr/resultats" />
+        <link rel="canonical" href="https://www.impot-libre.fr/resultats" />
       </Helmet>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex gap-0.5 mb-6 justify-center">
-            <div className="w-8 h-1 bg-bleu-republique rounded-sm" />
-            <div className="w-8 h-1 bg-white border border-gris-bordure rounded-sm" />
-            <div className="w-8 h-1 bg-rouge-marianne rounded-sm" />
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-texte mb-3">
+        <div className="text-center mb-12 animate-fade-in">
+          <span className="text-accent text-sm font-semibold tracking-wide uppercase">En temps réel</span>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-primary mt-3 tracking-tight">
             Résultats nationaux
           </h1>
-          <p className="text-sm text-gris-texte max-w-xl mx-auto">
-            Répartition moyenne exprimée par l&apos;ensemble des participants.
-            Ces résultats sont mis à jour en temps réel.
+          <p className="text-sm text-gris-texte max-w-xl mx-auto mt-4 leading-relaxed">
+            Répartition moyenne exprimée par l&apos;ensemble des participants,
+            regroupée par pôle thématique.
           </p>
         </div>
 
         {loading && (
-          <div className="text-center py-16">
-            <div className="inline-block w-8 h-8 border-4 border-bleu-republique border-t-transparent rounded-full animate-spin" />
+          <div className="text-center py-20">
+            <div className="inline-block w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
             <p className="mt-4 text-sm text-gris-texte">Chargement des résultats...</p>
           </div>
         )}
 
         {error && (
-          <div className="p-4 bg-rouge-marianne/10 border border-rouge-marianne rounded-sm text-center">
-            <p className="text-sm text-rouge-marianne">{error}</p>
+          <div className="p-5 bg-danger/5 border border-danger/20 rounded-xl text-center">
+            <p className="text-sm text-danger font-medium">{error}</p>
           </div>
         )}
 
-        {!loading && !error && stats && sortedMinistries.length > 0 && (
+        {!loading && !error && stats && sortedPoles.length > 0 && (
           <>
-            {/* Compteur de participants */}
-            <div className="bg-bleu-republique text-white rounded-sm p-6 mb-10 text-center">
-              <p className="text-sm text-blue-200 mb-1">Nombre de participants</p>
-              <p className="text-4xl font-bold">
+            {/* Participant counter */}
+            <div className="bg-hero-gradient text-white rounded-2xl p-8 mb-10 text-center shadow-glass animate-fade-in">
+              <p className="text-sm text-white/60 mb-1">Nombre de participants</p>
+              <p className="text-5xl font-extrabold tracking-tight">
                 {totalParticipants.toLocaleString('fr-FR')}
               </p>
-              <p className="text-sm text-blue-200 mt-1">
+              <p className="text-sm text-white/60 mt-2">
                 {totalParticipants === 1
                   ? 'citoyen a exprimé ses priorités'
                   : 'citoyens ont exprimé leurs priorités'}
               </p>
             </div>
 
-            {/* Barres horizontales */}
-            <div className="bg-white border border-gris-bordure rounded-sm p-6">
-              <h2 className="text-lg font-semibold text-texte mb-6">
-                Répartition moyenne par ministère
+            {/* Pole bars */}
+            <div className="bg-white border border-gris-bordure rounded-xl p-6 shadow-card animate-slide-up">
+              <h2 className="text-lg font-bold text-primary mb-6">
+                Répartition moyenne par pôle
               </h2>
 
-              <div className="space-y-4">
-                {sortedMinistries.map((ministry, index) => {
-                  const barWidth = maxAvg > 0 ? (ministry.avg / maxAvg) * 100 : 0;
-                  const color = BAR_COLORS[index % BAR_COLORS.length];
+              <div className="space-y-5">
+                {sortedPoles.map((pole, index) => {
+                  const barWidth = maxAvg > 0 ? (pole.moyenne / maxAvg) * 100 : 0;
+                  const color = POLE_COLORS[pole.pole_id - 1] || POLE_COLORS[index % POLE_COLORS.length];
 
                   return (
-                    <div key={ministry.id || index}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm text-texte font-medium truncate mr-3">
-                          {ministry.name}
+                    <div
+                      key={pole.pole_id}
+                      className="pole-card"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-primary font-semibold truncate mr-3 flex items-center gap-2">
+                          <span className="text-lg">{pole.emoji}</span>
+                          {pole.pole_name}
                         </span>
-                        <span className="text-sm font-semibold text-bleu-republique shrink-0">
-                          {ministry.avg.toFixed(1)} %
+                        <span className="text-sm font-bold text-accent shrink-0">
+                          {pole.moyenne.toFixed(1)} %
                         </span>
                       </div>
-                      <div className="w-full h-6 bg-gris-bordure/50 rounded-sm overflow-hidden">
+                      <div className="w-full h-7 bg-primary-50 rounded-lg overflow-hidden">
                         <div
-                          className="h-full rounded-sm transition-all duration-700 ease-out flex items-center"
+                          className="h-full rounded-lg flex items-center"
                           style={{
                             width: `${barWidth}%`,
                             backgroundColor: color,
-                            minWidth: barWidth > 0 ? '4px' : '0',
+                            minWidth: barWidth > 0 ? '6px' : '0',
+                            transition: 'width 0.8s ease-out',
+                            willChange: 'width',
                           }}
                         >
-                          {barWidth > 15 && (
-                            <span className="text-xs text-white font-medium pl-2">
-                              {ministry.avg.toFixed(1)} %
+                          {barWidth > 20 && (
+                            <span className="text-xs text-white font-semibold pl-3">
+                              {pole.moyenne.toFixed(1)} %
                             </span>
                           )}
                         </div>
@@ -147,7 +135,7 @@ export default function Resultats() {
             </div>
 
             {/* Disclaimer */}
-            <p className="mt-8 text-xs text-gris-texte text-center leading-relaxed">
+            <p className="mt-10 text-xs text-gris-texte/50 text-center leading-relaxed">
               Ces résultats représentent les préférences exprimées par les
               utilisateurs de la plateforme. Ils n&apos;ont aucune valeur
               officielle et ne sont pas liés à l&apos;administration fiscale.
@@ -155,11 +143,13 @@ export default function Resultats() {
           </>
         )}
 
-        {!loading && !error && (!stats || sortedMinistries.length === 0) && (
-          <div className="text-center py-16">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gris-bordure mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
+        {!loading && !error && (!stats || sortedPoles.length === 0) && (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
             <p className="text-gris-texte text-sm">
               Aucun résultat disponible pour le moment. Soyez le premier à participer !
             </p>

@@ -51,18 +51,22 @@ export async function register(req, res) {
     const ipHash = hashIP(ip);
     const fpHash = hashFingerprint(ip, userAgent, resolution || '', language || '');
 
-    // Vérifier les doublons par empreinte
-    const duplicateCheck = await pool.query(
-      'SELECT id FROM users WHERE ip_hash = $1 AND fingerprint_hash = $2',
-      [ipHash, fpHash]
-    );
+    // Vérifier les doublons par empreinte (désactivé en dev)
+    if (process.env.NODE_ENV === 'production') {
+      const duplicateCheck = await pool.query(
+        'SELECT id FROM users WHERE ip_hash = $1 AND fingerprint_hash = $2',
+        [ipHash, fpHash]
+      );
 
-    if (duplicateCheck.rows.length > 0) {
-      logger.warn('DOUBLON_INSCRIPTION', { ip_hash: ipHash, email });
-      return res.status(409).json({
-        message: 'Un compte a déjà été créé depuis ce navigateur. Un seul compte par personne est autorisé.',
-        error: 'Un compte a déjà été créé depuis ce navigateur. Un seul compte par personne est autorisé.',
-      });
+      if (duplicateCheck.rows.length > 0) {
+        logger.warn('DOUBLON_INSCRIPTION', { ip_hash: ipHash, email });
+        return res.status(409).json({
+          message: 'Un compte a déjà été créé depuis ce navigateur. Un seul compte par personne est autorisé.',
+          error: 'Un compte a déjà été créé depuis ce navigateur. Un seul compte par personne est autorisé.',
+        });
+      }
+    } else {
+      logger.info('DEV_MODE: vérification doublon fingerprint désactivée', { email });
     }
 
     // Hashage du mot de passe

@@ -10,3 +10,4 @@ server/logs/
 logs/
 *.pem
 *.key
+vite.config.js.timestamp-*

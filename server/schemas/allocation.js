@@ -8,7 +8,7 @@ export const allocationSchema = z.object({
   allocations: z
     .array(
       z.object({
-        ministere_id: z.number().int().min(1),
+        pole_id: z.number().int().min(1),
         percentage: z.number().min(0).max(100),
       })
     )

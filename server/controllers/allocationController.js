@@ -1,14 +1,17 @@
 import pool from '../db.js';
 
 /**
- * Soumission d'une allocation budgétaire.
+ * Soumission d'une allocation budgétaire par pôles.
  * POST /api/allocations
  *
  * Body attendu :
  * {
  *   totalAmount: 4200,
- *   allocations: [ { ministere_id: 1, percentage: 21.4 }, ... ]
+ *   allocations: [ { pole_id: 1, percentage: 18.5 }, ... ]
  * }
+ *
+ * Le backend distribue équitablement le pourcentage de chaque pôle
+ * entre ses ministères rattachés pour le stockage en BDD.
  */
 export async function submitAllocation(req, res) {
   const client = await pool.connect();
@@ -17,8 +20,6 @@ export async function submitAllocation(req, res) {
     const totalAmount = req.body.totalAmount ?? req.body.total_amount;
     const repartition = req.body.allocations ?? req.body.repartition ?? req.body.details;
     const userId = req.user.id;
-
-    // --- Validations basiques ---
 
     // --- Vérifier que l'email est confirmé ---
     const userCheck = await client.query(
@@ -56,55 +57,66 @@ export async function submitAllocation(req, res) {
       });
     }
 
-    // --- Charger les ministères depuis la BDD (source de vérité) ---
+    // --- Charger les pôles depuis la BDD ---
+    const polesResult = await client.query(
+      'SELECT id, name, minimum_percentage FROM poles ORDER BY id'
+    );
+    const poles = polesResult.rows;
+    const poleMap = new Map(poles.map((p) => [p.id, p]));
+
+    // --- Charger les ministères avec leur pole_id ---
     const ministeresResult = await client.query(
-      'SELECT id, name, minimum_percentage FROM ministeres ORDER BY id'
+      'SELECT id, name, pole_id FROM ministeres WHERE pole_id IS NOT NULL ORDER BY id'
     );
     const ministeres = ministeresResult.rows;
-    const ministereMap = new Map(ministeres.map((m) => [m.id, m]));
 
-    // --- Vérifier que chaque ministere_id existe en BDD ---
-    for (const item of repartition) {
-      const id = parseInt(item.ministere_id, 10);
-      if (isNaN(id) || !ministereMap.has(id)) {
-        return res.status(400).json({
-          message: `Ministère inconnu : ID ${item.ministere_id}.`,
-        });
+    // Grouper les ministères par pôle
+    const ministeresByPole = new Map();
+    for (const m of ministeres) {
+      if (!ministeresByPole.has(m.pole_id)) {
+        ministeresByPole.set(m.pole_id, []);
       }
+      ministeresByPole.get(m.pole_id).push(m);
     }
 
-    // --- Vérifier que TOUS les ministères sont présents ---
-    if (repartition.length !== ministeres.length) {
+    // --- Vérifier que tous les pôles sont présents ---
+    if (repartition.length !== poles.length) {
       return res.status(400).json({
-        message: `Répartition incomplète : ${repartition.length}/${ministeres.length} ministères fournis.`,
+        message: `Répartition incomplète : ${repartition.length}/${poles.length} pôles fournis.`,
       });
     }
 
-    // --- Vérifier les planchers minimum ---
+    // --- Vérifier chaque pôle ---
     let totalPercentage = 0;
 
     for (const item of repartition) {
-      const id = parseInt(item.ministere_id, 10);
+      const poleId = parseInt(item.pole_id, 10);
       const pct = parseFloat(item.percentage);
-      const ministere = ministereMap.get(id);
-      const minRequired = parseFloat(ministere.minimum_percentage);
+      const pole = poleMap.get(poleId);
 
-      if (isNaN(pct) || pct < 0) {
+      if (isNaN(poleId) || !pole) {
         return res.status(400).json({
-          message: `Pourcentage invalide pour « ${ministere.name} ».`,
+          message: `Pôle inconnu : ID ${item.pole_id}.`,
         });
       }
 
+      if (isNaN(pct) || pct < 0) {
+        return res.status(400).json({
+          message: `Pourcentage invalide pour le pôle « ${pole.name} ».`,
+        });
+      }
+
+      const minRequired = parseInt(pole.minimum_percentage, 10);
       if (pct < minRequired - 0.1) {
         return res.status(400).json({
-          message: `Le pourcentage pour « ${ministere.name} » (${pct}%) est inférieur au minimum requis (${minRequired}%).`,
+          message: `Le pourcentage pour « ${pole.name} » (${pct}%) est inférieur au minimum requis (${minRequired}%).`,
         });
       }
 
       totalPercentage += pct;
     }
 
-    // --- Vérifier que le total ≈ 100% (tolérance arrondi) ---
+    // --- Vérifier que le total ≈ 100% ---
     if (Math.abs(Math.round(totalPercentage) - 100) > 1) {
       return res.status(400).json({
         message: `Le total des pourcentages doit être 100%. Total actuel : ${totalPercentage.toFixed(2)}%.`,
@@ -120,11 +132,32 @@ export async function submitAllocation(req, res) {
     );
     const allocationId = allocResult.rows[0].id;
 
+    // Distribuer chaque pôle équitablement entre ses ministères
     for (const item of repartition) {
-      await client.query(
-        'INSERT INTO allocations_detail (allocation_id, ministere_id, percentage) VALUES ($1, $2, $3)',
-        [allocationId, parseInt(item.ministere_id, 10), parseFloat(item.percentage)]
-      );
+      const poleId = parseInt(item.pole_id, 10);
+      const polePct = parseFloat(item.percentage);
+      const poleMinisteres = ministeresByPole.get(poleId) || [];
+
+      if (poleMinisteres.length === 0) continue;
+
+      // Distribution égale au sein du pôle
+      const pctPerMinistere = parseFloat((polePct / poleMinisteres.length).toFixed(2));
+      let distributed = 0;
+
+      for (let i = 0; i < poleMinisteres.length; i++) {
+        const m = poleMinisteres[i];
+        // Dernier ministère récupère le reste (gestion des arrondis)
+        const finalPct = i < poleMinisteres.length - 1
+          ? pctPerMinistere
+          : parseFloat((polePct - distributed).toFixed(2));
+
+        await client.query(
+          'INSERT INTO allocations_detail (allocation_id, ministere_id, percentage) VALUES ($1, $2, $3)',
+          [allocationId, m.id, finalPct]
+        );
+
+        distributed += pctPerMinistere;
+      }
     }
 
     await client.query('COMMIT');
@@ -147,6 +180,7 @@ export async function submitAllocation(req, res) {
 /**
  * Récupération de l'allocation de l'utilisateur connecté.
  * GET /api/allocations/me
+ * Retourne les données agrégées par pôle.
  */
 export async function getMyAllocation(req, res) {
   try {
@@ -161,23 +195,48 @@ export async function getMyAllocation(req, res) {
 
     const allocation = allocResult.rows[0];
 
+    // Récupérer les détails avec info pôle
     const detailsResult = await pool.query(
-      `SELECT ad.ministere_id, m.name, m.slug, ad.percentage, m.minimum_percentage
+      `SELECT ad.ministere_id, m.name AS ministere_name, m.slug, m.pole_id,
+              p.name AS pole_name, p.emoji, p.minimum_percentage AS pole_minimum,
+              ad.percentage
        FROM allocations_detail ad
        JOIN ministeres m ON m.id = ad.ministere_id
+       LEFT JOIN poles p ON p.id = m.pole_id
        WHERE ad.allocation_id = $1
-       ORDER BY m.id`,
+       ORDER BY m.pole_id, m.id`,
       [allocation.id]
     );
 
+    // Agréger par pôle
+    const poleMap = new Map();
+    for (const row of detailsResult.rows) {
+      const pid = row.pole_id;
+      if (!poleMap.has(pid)) {
+        poleMap.set(pid, {
+          pole_id: pid,
+          pole_name: row.pole_name,
+          emoji: row.emoji,
+          pole_minimum: parseInt(row.pole_minimum, 10),
+          percentage: 0,
+          ministeres: [],
+        });
+      }
+      const pole = poleMap.get(pid);
+      pole.percentage += parseFloat(row.percentage);
+      pole.ministeres.push({
+        ministere_id: row.ministere_id,
+        name: row.ministere_name,
+        slug: row.slug,
+        percentage: parseFloat(row.percentage),
+      });
+    }
+
     return res.json({
       totalAmount: parseFloat(allocation.total_amount),
-      allocations: detailsResult.rows.map((r) => ({
-        ministere_id: r.ministere_id,
-        name: r.name,
-        slug: r.slug,
-        percentage: parseFloat(r.percentage),
-        minimum: parseFloat(r.minimum_percentage),
+      allocations: Array.from(poleMap.values()).map((p) => ({
+        ...p,
+        percentage: parseFloat(p.percentage.toFixed(2)),
       })),
     });
   } catch (err) {
@@ -187,32 +246,46 @@ export async function getMyAllocation(req, res) {
 }
 
 /**
- * Statistiques publiques agrégées par ministère.
+ * Statistiques publiques agrégées par pôle.
  * GET /api/allocations/stats
  */
 export async function getPublicStats(req, res) {
   try {
     const result = await pool.query(`
       SELECT
-        m.id AS ministere_id,
-        m.name AS ministere_name,
-        m.slug,
-        m.minimum_percentage,
-        COUNT(ad.id)::int AS nombre_allocations,
-        ROUND(AVG(ad.percentage), 2) AS moyenne,
-        ROUND(MIN(ad.percentage), 2) AS minimum,
-        ROUND(MAX(ad.percentage), 2) AS maximum
-      FROM ministeres m
+        p.id AS pole_id,
+        p.name AS pole_name,
+        p.slug AS pole_slug,
+        p.emoji,
+        p.minimum_percentage AS pole_minimum,
+        COUNT(DISTINCT a.id)::int AS nombre_allocations,
+        ROUND(SUM(ad.percentage), 2) AS somme_moyenne
+      FROM poles p
+      LEFT JOIN ministeres m ON m.pole_id = p.id
       LEFT JOIN allocations_detail ad ON ad.ministere_id = m.id
-      GROUP BY m.id, m.name, m.slug, m.minimum_percentage
-      ORDER BY m.id
+      LEFT JOIN allocations a ON a.id = ad.allocation_id
+      GROUP BY p.id, p.name, p.slug, p.emoji, p.minimum_percentage
+      ORDER BY p.id
     `);
 
     const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM allocations');
+    const totalAllocations = totalResult.rows[0].total;
+
+    const poles = result.rows.map((r) => ({
+      pole_id: r.pole_id,
+      pole_name: r.pole_name,
+      pole_slug: r.pole_slug,
+      emoji: r.emoji,
+      pole_minimum: parseInt(r.pole_minimum, 10),
+      nombre_allocations: r.nombre_allocations,
+      moyenne: totalAllocations > 0
+        ? parseFloat((parseFloat(r.somme_moyenne) / totalAllocations).toFixed(2))
+        : 0,
+    }));
 
     return res.json({
-      total_allocations: totalResult.rows[0].total,
-      ministeres: result.rows,
+      total_allocations: totalAllocations,
+      poles,
     });
   } catch (err) {
     console.error('[ALLOCATION] Erreur lors de la récupération des stats :', err);

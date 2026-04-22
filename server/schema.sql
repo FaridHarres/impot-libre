@@ -91,38 +91,97 @@ CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs (admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs (created_at DESC);
 
 -- =============================================================
--- Seed : 20 ministères avec pourcentages minimaux (total = 72%)
--- Les IDs fixes (1-20) sont la clé de référence utilisée partout
+-- Table des pôles thématiques (8 pôles)
+-- Chaque pôle regroupe plusieurs ministères, minimum 3% par pôle
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS poles (
+    id                  SERIAL PRIMARY KEY,
+    name                VARCHAR(100) NOT NULL,
+    slug                VARCHAR(100) UNIQUE NOT NULL,
+    emoji               VARCHAR(10),
+    minimum_percentage  INTEGER NOT NULL DEFAULT 3
+);
+
+CREATE INDEX IF NOT EXISTS idx_poles_slug ON poles (slug);
+
+-- =============================================================
+-- Seed : 8 pôles thématiques
+-- =============================================================
+
+INSERT INTO poles (id, name, slug, emoji, minimum_percentage) VALUES
+    (1, 'Éducation & Savoir',         'education-savoir',        '🎓', 3),
+    (2, 'Santé & Solidarité',         'sante-solidarite',        '🏥', 3),
+    (3, 'Sécurité & Justice',         'securite-justice',        '🛡️', 3),
+    (4, 'Économie & Finances',        'economie-finances',       '💰', 3),
+    (5, 'Environnement & Territoire', 'environnement-territoire','🌱', 3),
+    (6, 'International & Europe',     'international-europe',    '🌍', 3),
+    (7, 'Sport & Vie citoyenne',      'sport-citoyenne',         '🏃', 3),
+    (8, 'Institutions & État',        'institutions-etat',       '🏛️', 3)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    slug = EXCLUDED.slug,
+    emoji = EXCLUDED.emoji,
+    minimum_percentage = EXCLUDED.minimum_percentage;
+
+SELECT setval('poles_id_seq', 8);
+
+-- =============================================================
+-- Seed : 20 ministères rattachés à leur pôle
+-- minimum_percentage est maintenant à 0 (le minimum est géré au niveau pôle)
 -- =============================================================
 
 INSERT INTO ministeres (id, name, slug, minimum_percentage) VALUES
-    (1,  'Éducation nationale',                     'education-nationale',         8.00),
-    (2,  'Économie et Finances',                    'economie-finances',           5.00),
-    (3,  'Défense',                                 'defense',                     6.00),
-    (4,  'Santé et Prévention',                     'sante-prevention',            7.00),
-    (5,  'Intérieur',                               'interieur',                   6.00),
-    (6,  'Justice',                                 'justice',                     5.00),
-    (7,  'Travail et Emploi',                       'travail-emploi',              5.00),
-    (8,  'Transition écologique',                   'transition-ecologique',       4.00),
-    (9,  'Enseignement supérieur et Recherche',     'enseignement-superieur',      4.00),
-    (10, 'Agriculture et Souveraineté alimentaire', 'agriculture',                 3.00),
-    (11, 'Logement',                                'logement',                    3.00),
-    (12, 'Transports',                              'transports',                  3.00),
-    (13, 'Culture',                                 'culture',                     2.00),
-    (14, 'Sport',                                   'sport',                       1.00),
-    (15, 'Europe et Affaires étrangères',           'affaires-etrangeres',         2.00),
-    (16, 'Outre-Mer',                               'outre-mer',                   2.00),
-    (17, 'Cohésion des territoires',                'cohesion-territoires',        2.00),
-    (18, 'Fonction publique',                       'fonction-publique',           2.00),
-    (19, 'Numérique',                               'numerique',                   1.00),
-    (20, 'Anciens combattants',                     'anciens-combattants',         1.00)
+    (1,  'Éducation nationale',                     'education-nationale',         0),
+    (2,  'Économie et Finances',                    'economie-finances',           0),
+    (3,  'Défense',                                 'defense',                     0),
+    (4,  'Santé et Prévention',                     'sante-prevention',            0),
+    (5,  'Intérieur',                               'interieur',                   0),
+    (6,  'Justice',                                 'justice',                     0),
+    (7,  'Travail et Emploi',                       'travail-emploi',              0),
+    (8,  'Transition écologique',                   'transition-ecologique',       0),
+    (9,  'Enseignement supérieur et Recherche',     'enseignement-superieur',      0),
+    (10, 'Agriculture et Souveraineté alimentaire', 'agriculture',                 0),
+    (11, 'Logement',                                'logement',                    0),
+    (12, 'Transports',                              'transports',                  0),
+    (13, 'Culture',                                 'culture',                     0),
+    (14, 'Sport',                                   'sport',                       0),
+    (15, 'Europe et Affaires étrangères',           'affaires-etrangeres',         0),
+    (16, 'Outre-Mer',                               'outre-mer',                   0),
+    (17, 'Cohésion des territoires',                'cohesion-territoires',        0),
+    (18, 'Fonction publique',                       'fonction-publique',           0),
+    (19, 'Numérique',                               'numerique',                   0),
+    (20, 'Anciens combattants',                     'anciens-combattants',         0),
+    (21, 'Services du Premier ministre',            'premier-ministre',            0),
+    (22, 'Parlement',                               'parlement',                   0),
+    (23, 'Conseil d''État',                          'conseil-etat',                0)
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     slug = EXCLUDED.slug,
     minimum_percentage = EXCLUDED.minimum_percentage;
 
 -- Reset de la séquence après insertion avec IDs explicites
-SELECT setval('ministeres_id_seq', 20);
+SELECT setval('ministeres_id_seq', 23);
+
+-- Ajout colonne pole_id si elle n'existe pas encore
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ministeres' AND column_name = 'pole_id') THEN
+    ALTER TABLE ministeres ADD COLUMN pole_id INTEGER REFERENCES poles(id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_ministeres_pole_id ON ministeres (pole_id);
+
+-- Rattachement des ministères à leur pôle
+UPDATE ministeres SET pole_id = 1 WHERE slug IN ('education-nationale', 'enseignement-superieur', 'culture');
+UPDATE ministeres SET pole_id = 2 WHERE slug IN ('sante-prevention', 'travail-emploi', 'cohesion-territoires');
+UPDATE ministeres SET pole_id = 3 WHERE slug IN ('defense', 'interieur', 'justice');
+UPDATE ministeres SET pole_id = 4 WHERE slug IN ('economie-finances', 'numerique', 'fonction-publique');
+UPDATE ministeres SET pole_id = 5 WHERE slug IN ('transition-ecologique', 'logement', 'transports', 'agriculture');
+UPDATE ministeres SET pole_id = 6 WHERE slug IN ('affaires-etrangeres', 'outre-mer');
+UPDATE ministeres SET pole_id = 7 WHERE slug IN ('sport', 'anciens-combattants');
+UPDATE ministeres SET pole_id = 8 WHERE slug IN ('premier-ministre', 'parlement', 'conseil-etat');
 
 -- =============================================================
 -- Migration : si la BDD existe déjà, ajouter les colonnes manquantes

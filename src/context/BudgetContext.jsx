@@ -1,53 +1,54 @@
 import { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { validateAllocation } from '../utils/validateAllocation';
 import api from '../services/api';
 
 export const BudgetContext = createContext(null);
 
 /**
- * BudgetProvider — charge les ministères depuis l'API (source de vérité = BDD).
- * Plus AUCUN hardcode de noms, slugs ou minimums côté frontend.
- * Toutes les clés sont des ID numériques PostgreSQL.
+ * BudgetProvider — charge les pôles depuis l'API (source de vérité = BDD).
+ * Chaque pôle contient ses ministères rattachés.
+ * L'allocation se fait au niveau des pôles (8 cartes, minimum 3% chacun).
  */
 export function BudgetProvider({ children }) {
-  // Liste des ministères chargée depuis /api/ministeres
-  const [ministries, setMinistries] = useState([]);
-  const [loadingMinistries, setLoadingMinistries] = useState(true);
-  const [ministriesError, setMinistriesError] = useState(null);
+  const [poles, setPoles] = useState([]);
+  const [loadingPoles, setLoadingPoles] = useState(true);
+  const [polesError, setPolesError] = useState(null);
 
-  // ─── Chargement initial depuis la BDD ───
+  // ─── Chargement initial des pôles depuis la BDD ───
   useEffect(() => {
-    api.get('/ministeres')
+    api.get('/ministeres/poles')
       .then((res) => {
         const data = res.data;
         if (!Array.isArray(data) || data.length === 0) {
-          setMinistriesError('Aucun ministère retourné par le serveur.');
+          setPolesError('Aucun pôle retourné par le serveur.');
           return;
         }
 
-        // Initialiser chaque allocation à son minimum
-        const initialized = data.map((m) => ({
-          id: m.id,                                        // ID numérique BDD
-          name: m.name,                                    // Nom complet depuis la BDD
-          slug: m.slug,                                    // Slug pour affichage/URL
-          minimum: parseFloat(m.minimum_percentage),       // Plancher minimum
-          percentage: parseFloat(m.minimum_percentage),    // Valeur initiale = minimum
+        // Initialiser chaque pôle à son minimum (3%)
+        const initialized = data.map((p) => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          emoji: p.emoji,
+          minimum: p.minimum_percentage,
+          percentage: p.minimum_percentage,
+          ministeres: p.ministeres.map((m) => m.name),
+          ministeresDetail: p.ministeres,
         }));
 
-        setMinistries(initialized);
+        setPoles(initialized);
       })
       .catch((err) => {
-        console.error('[BUDGET] Erreur chargement ministères :', err);
-        setMinistriesError('Impossible de charger les ministères. Vérifiez que le serveur est démarré.');
+        console.error('[BUDGET] Erreur chargement pôles :', err);
+        setPolesError('Impossible de charger les pôles. Vérifiez que le serveur est démarré.');
       })
-      .finally(() => setLoadingMinistries(false));
+      .finally(() => setLoadingPoles(false));
   }, []);
 
   // ─── Calculs dérivés ───
 
   const total = useMemo(
-    () => parseFloat(ministries.reduce((sum, m) => sum + m.percentage, 0).toFixed(2)),
-    [ministries]
+    () => parseFloat(poles.reduce((sum, p) => sum + p.percentage, 0).toFixed(2)),
+    [poles]
   );
 
   const remaining = useMemo(
@@ -60,97 +61,117 @@ export function BudgetProvider({ children }) {
     [remaining]
   );
 
-  const validation = useMemo(
-    () => validateAllocation(ministries),
-    [ministries]
-  );
+  const validation = useMemo(() => {
+    const errors = [];
+    if (poles.length === 0) {
+      errors.push('Aucun pôle chargé.');
+      return { valid: false, isValid: false, errors, total: 0 };
+    }
 
-  // ─── Mise à jour d'un slider avec cap à 100% ───
-  const updateMinistry = useCallback((id, newValue) => {
-    setMinistries((prev) => {
-      const ministere = prev.find((m) => m.id === id);
-      if (!ministere) return prev;
+    const t = poles.reduce((sum, p) => sum + p.percentage, 0);
+    if (Math.abs(t - 100) > 0.01) {
+      errors.push(`Le total doit être de 100%. Actuellement : ${t.toFixed(2)}%.`);
+    }
+
+    for (const p of poles) {
+      if (p.percentage < p.minimum - 0.01) {
+        errors.push(`« ${p.name} » requiert un minimum de ${p.minimum}%.`);
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      isValid: errors.length === 0,
+      errors,
+      total: parseFloat(t.toFixed(2)),
+    };
+  }, [poles]);
+
+  // ─── Mise à jour d'un slider de pôle avec cap à 100% ───
+  const updatePole = useCallback((id, newValue) => {
+    setPoles((prev) => {
+      const pole = prev.find((p) => p.id === id);
+      if (!pole) return prev;
 
       let val = parseFloat(parseFloat(newValue).toFixed(1));
       if (isNaN(val)) return prev;
 
       // Respect du plancher minimum
-      if (val < ministere.minimum) val = ministere.minimum;
+      if (val < pole.minimum) val = pole.minimum;
 
-      // Calcul du total des AUTRES ministères
+      // Calcul du total des AUTRES pôles
       const totalAutres = prev
-        .filter((m) => m.id !== id)
-        .reduce((sum, m) => sum + m.percentage, 0);
+        .filter((p) => p.id !== id)
+        .reduce((sum, p) => sum + p.percentage, 0);
 
       // Cap : ne jamais dépasser 100%
       const maxAutorise = parseFloat((100 - totalAutres).toFixed(1));
       if (val > maxAutorise) val = maxAutorise;
 
-      if (val === ministere.percentage) return prev;
+      if (val === pole.percentage) return prev;
 
-      return prev.map((m) =>
-        m.id === id ? { ...m, percentage: val } : m
+      return prev.map((p) =>
+        p.id === id ? { ...p, percentage: val } : p
       );
     });
   }, []);
 
   // ─── Réinitialiser aux minimums ───
   const resetToMinimums = useCallback(() => {
-    setMinistries((prev) =>
-      prev.map((m) => ({ ...m, percentage: m.minimum }))
+    setPoles((prev) =>
+      prev.map((p) => ({ ...p, percentage: p.minimum }))
     );
   }, []);
 
-  // ─── Répartition égale (surplus distribué équitablement au-dessus des minimums) ───
+  // ─── Répartition égale ───
   const resetToEqual = useCallback(() => {
-    setMinistries((prev) => {
+    setPoles((prev) => {
       const count = prev.length;
       if (count === 0) return prev;
 
-      const totalMins = prev.reduce((s, m) => s + m.minimum, 0);
+      const totalMins = prev.reduce((s, p) => s + p.minimum, 0);
       const surplus = 100 - totalMins;
       const bonusEach = parseFloat((surplus / count).toFixed(1));
 
       let distributed = 0;
-      return prev.map((m, i) => {
+      return prev.map((p, i) => {
         if (i < count - 1) {
           distributed += bonusEach;
-          return { ...m, percentage: parseFloat((m.minimum + bonusEach).toFixed(1)) };
+          return { ...p, percentage: parseFloat((p.minimum + bonusEach).toFixed(1)) };
         }
         const lastBonus = parseFloat((surplus - distributed).toFixed(1));
-        return { ...m, percentage: parseFloat((m.minimum + lastBonus).toFixed(1)) };
+        return { ...p, percentage: parseFloat((p.minimum + lastBonus).toFixed(1)) };
       });
     });
   }, []);
 
-  const getMinistryById = useCallback(
-    (id) => ministries.find((m) => m.id === id),
-    [ministries]
-  );
-
-  // ─── Données pour envoi à l'API — utilise les ID numériques BDD ───
+  // ─── Données pour envoi à l'API — utilise les ID de pôles ───
   const getAllocationData = useCallback(
     () =>
-      ministries.map(({ id, percentage }) => ({
-        ministere_id: id,                                 // ← ID numérique, jamais un slug
+      poles.map(({ id, percentage }) => ({
+        pole_id: id,
         percentage: parseFloat(percentage.toFixed(2)),
       })),
-    [ministries]
+    [poles]
   );
 
   const value = {
-    ministries,
-    loadingMinistries,
-    ministriesError,
+    poles,
+    loadingPoles,
+    polesError,
     total,
     remaining,
     isComplete,
     validation,
-    updateMinistry,
+    updatePole,
     resetToMinimums,
     resetToEqual,
-    getMinistryById,
     getAllocationData,
+    // Aliases pour compatibilité
+    ministries: poles,
+    loadingMinistries: loadingPoles,
+    ministriesError: polesError,
+    updateMinistry: updatePole,
   };
 
   return (

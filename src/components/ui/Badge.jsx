@@ -1,8 +1,8 @@
 const VARIANTS = {
-  success: 'bg-succes/10 text-succes border-succes',
-  warning: 'bg-avertissement/10 text-avertissement border-avertissement',
-  danger: 'bg-rouge-marianne/10 text-rouge-marianne border-rouge-marianne',
-  info: 'bg-bleu-republique/10 text-bleu-republique border-bleu-republique',
+  success: 'bg-success/10 text-success border-success/20',
+  warning: 'bg-warning/10 text-warning border-warning/20',
+  danger: 'bg-danger/10 text-danger border-danger/20',
+  info: 'bg-accent/10 text-accent border-accent/20',
 };
 
 export default function Badge({ children, variant = 'info' }) {
@@ -10,7 +10,7 @@ export default function Badge({ children, variant = 'info' }) {
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded-sm ${classes}`}
+      className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold border rounded-md ${classes}`}
     >
       {children}
     </span>

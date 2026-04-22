@@ -34,7 +34,7 @@ async function sendEmail({ to, subject, htmlContent }) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      sender: { name: 'Impôt Libre', email: 'ne-pas-repondre@impot-libre.fr' },
+      sender: { name: 'Impôt Libre', email: process.env.BREVO_SENDER_EMAIL || 'ne-pas-repondre@impot-libre.fr' },
       to,
       subject,
       htmlContent,

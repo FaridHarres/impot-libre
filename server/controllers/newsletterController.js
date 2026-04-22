@@ -140,7 +140,7 @@ export async function sendCampaign(req, res) {
 
     const apiInstance = new SibApiV3Sdk.default.TransactionalEmailsApi();
 
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@impot-libre.fr';
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'ne-pas-repondre@impot-libre.fr';
     const senderName = process.env.BREVO_SENDER_NAME || 'Impôt Libre';
 
     // Envoi en batch (par lots de 50 pour éviter les limites)

@@ -60,17 +60,18 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').spli
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (origin && allowedOrigins.includes(origin)) {
+      // Pas d'Origin = navigation directe du navigateur (lien email, barre d'adresse)
+      // ou requête serveur-à-serveur — autoriser dans tous les cas
+      if (!origin) {
         callback(null, true);
-      } else if (!origin && !IS_PROD) {
-        // Autoriser curl/Postman en dev uniquement
+      } else if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('CORS non autorisé'));
       }
     },
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     credentials: true,
   })
 );
@@ -152,8 +153,7 @@ app.use((err, req, res, _next) => {
   });
 
   res.status(500).json({
-    error: err.message,
-    stack: err.stack?.split('\n').slice(0, 3),
+    error: IS_PROD ? 'Erreur interne du serveur.' : err.message,
   });
 });
 

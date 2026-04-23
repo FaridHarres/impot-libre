@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
@@ -34,11 +34,25 @@ function PageLoader() {
 }
 
 /**
- * Route protégée : nécessite d'être authentifié ET email vérifié.
- * Redirige vers /connexion avec un message contextuel.
+ * GuestRoute — accessible UNIQUEMENT si NON connecté.
+ * Si connecté → redirige vers /repartition.
+ */
+function GuestRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return <PageLoader />;
+  if (isAuthenticated) return <Navigate to="/repartition" replace />;
+
+  return children;
+}
+
+/**
+ * ProtectedRoute — nécessite d'être authentifié ET email vérifié.
+ * Si non connecté → redirige vers /connexion avec message + URL sauvegardée.
  */
 function ProtectedRoute({ children, redirectMessage }) {
   const { isAuthenticated, user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <PageLoader />;
 
@@ -48,14 +62,13 @@ function ProtectedRoute({ children, redirectMessage }) {
         to="/connexion"
         state={{
           message: redirectMessage || 'Connectez-vous pour accéder à cette page.',
-          redirect: window.location.pathname,
+          redirect: location.pathname,
         }}
         replace
       />
     );
   }
 
-  // Bloquer si email non vérifié
   if (user && !user.email_verified) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center animate-fade-in">
@@ -80,16 +93,17 @@ function ProtectedRoute({ children, redirectMessage }) {
 }
 
 /**
- * Route admin : nécessite d'être authentifié avec le rôle admin.
+ * AdminRoute — nécessite authentification + rôle admin.
+ * User normal → redirige vers /repartition.
+ * Non connecté → redirige vers /.
  */
 function AdminRoute({ children }) {
   const { isAuthenticated, isAdmin, loading } = useAuth();
 
   if (loading) return <PageLoader />;
 
-  if (!isAuthenticated || !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/repartition" replace />;
 
   return children;
 }
@@ -104,11 +118,17 @@ function App() {
       <main className="flex-1">
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            {/* Public */}
             <Route path="/" element={<Home />} />
-            <Route path="/inscription" element={<Register />} />
-            <Route path="/connexion" element={<Login />} />
-            <Route path="/mot-de-passe-oublie" element={<ForgotPassword />} />
-            <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/mentions-legales" element={<MentionsLegales />} />
+
+            {/* Guest only — inaccessible si connecté */}
+            <Route path="/connexion" element={<GuestRoute><Login /></GuestRoute>} />
+            <Route path="/inscription" element={<GuestRoute><Register /></GuestRoute>} />
+            <Route path="/mot-de-passe-oublie" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+            <Route path="/reset-password/:token" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+
+            {/* Protected — nécessite connexion + email vérifié */}
             <Route
               path="/repartition"
               element={
@@ -125,7 +145,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/mentions-legales" element={<MentionsLegales />} />
 
             {/* Admin login (2FA) — URL secrète */}
             {ADMIN_SECRET ? (
@@ -134,29 +153,18 @@ function App() {
               <Route path="/admin-login" element={<AdminLogin />} />
             )}
 
-            {/* Admin dashboard */}
-            <Route
-              path="/admin"
-              element={<AdminRoute><AdminDashboard /></AdminRoute>}
-            />
-            <Route
-              path="/admin/export"
-              element={<AdminRoute><AdminExport /></AdminRoute>}
-            />
-            <Route
-              path="/admin/newsletter"
-              element={<AdminRoute><AdminNewsletter /></AdminRoute>}
-            />
-            <Route
-              path="/admin/participants"
-              element={<AdminRoute><AdminParticipants /></AdminRoute>}
-            />
+            {/* Admin — nécessite rôle admin */}
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/export" element={<AdminRoute><AdminExport /></AdminRoute>} />
+            <Route path="/admin/newsletter" element={<AdminRoute><AdminNewsletter /></AdminRoute>} />
+            <Route path="/admin/participants" element={<AdminRoute><AdminParticipants /></AdminRoute>} />
+
+            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>
 
-      {/* Disclaimer banner */}
       <div className="bg-primary text-white/60 text-xs py-3 px-4 text-center">
         <p>
           impot-libre.fr est un outil citoyen à titre informatif uniquement.

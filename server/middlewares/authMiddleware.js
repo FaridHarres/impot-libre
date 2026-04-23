@@ -7,8 +7,14 @@ import pool from '../db.js';
  * Vérifie la session en BDD (non révoquée, non expirée).
  */
 export async function authMiddleware(req, res, next) {
-  // Cookie httpOnly uniquement — plus de header Authorization
-  const token = req.cookies?.token;
+  // Cookie httpOnly en priorité, fallback header Authorization pour transition
+  let token = req.cookies?.token;
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
 
   if (!token) {
     return res.status(401).json({

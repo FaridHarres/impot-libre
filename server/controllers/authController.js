@@ -9,6 +9,24 @@ import logger from '../utils/logger.js';
 const BCRYPT_ROUNDS = 12;
 const IS_PROD = process.env.NODE_ENV === 'production';
 const JWT_USER_EXPIRY = '1h';
+const SESSION_MAX_AGE_MS = 60 * 60 * 1000; // 1h
+
+/**
+ * Hash un session ID avec SHA-256 pour stockage en BDD.
+ */
+function hashSessionId(rawId) {
+  return crypto.createHash('sha256').update(rawId).digest('hex');
+}
+
+/**
+ * Nettoyage opportuniste des sessions expirées/révoquées.
+ * Non-bloquant — ne fait jamais échouer le login.
+ */
+function cleanupSessions() {
+  pool.query(
+    "DELETE FROM sessions WHERE expires_at < NOW() OR (revoked_at IS NOT NULL AND revoked_at < NOW() - INTERVAL '30 days')"
+  ).catch(() => {});
+}
 
 /**
  * Helper : configure le cookie httpOnly contenant le JWT.
@@ -186,6 +204,17 @@ export async function resendVerification(req, res) {
     }
 
     const user = result.rows[0];
+
+    // Rate limit par email en BDD : max 3 en 30 minutes
+    const recentCount = await pool.query(
+      `SELECT COUNT(*)::int AS cnt FROM users
+       WHERE id = $1 AND verify_expires > NOW() - INTERVAL '30 minutes'`,
+      [user.id]
+    );
+    if (recentCount.rows[0].cnt >= 3) {
+      return res.json({ message: genericMessage });
+    }
+
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -221,7 +250,7 @@ export async function login(req, res) {
 
     // Rechercher l'utilisateur (sélection explicite — jamais de *)
     const result = await pool.query(
-      'SELECT id, prenom, nom, email, password_hash, role, email_verified FROM users WHERE email = $1',
+      'SELECT id, prenom, nom, email, password_hash, role, email_verified, failed_login_attempts, locked_until FROM users WHERE email = $1',
       [email]
     );
 
@@ -234,14 +263,45 @@ export async function login(req, res) {
 
     const user = result.rows[0];
 
+    // Vérifier si le compte est verrouillé
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      logger.warn('LOGIN_COMPTE_VERROUILLE', { email, ip: req.ip, minutesLeft });
+      return res.status(429).json({
+        message: `Compte temporairement verrouillé. Réessayez dans ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}.`,
+        error: 'account_locked',
+      });
+    }
+
     // Vérification du mot de passe
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
-      logger.warn('TENTATIVE_LOGIN_ECHEC', { email, ip: req.ip });
+      const attempts = (user.failed_login_attempts || 0) + 1;
+      const lockout = attempts >= 10 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+      await pool.query(
+        'UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
+        [attempts, lockout, user.id]
+      );
+
+      if (lockout) {
+        logger.warn('LOGIN_VERROUILLAGE', { email, ip: req.ip, attempts });
+      } else {
+        logger.warn('TENTATIVE_LOGIN_ECHEC', { email, ip: req.ip, attempts });
+      }
+
       return res.status(401).json({
         message: 'Identifiants incorrects.',
         error: 'Identifiants incorrects.',
       });
+    }
+
+    // Login réussi — reset le compteur
+    if (user.failed_login_attempts > 0) {
+      await pool.query(
+        'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+        [user.id]
+      );
     }
 
     // Vérifier que l'email est confirmé (sauf admin, qui passe par le 2FA)
@@ -253,21 +313,33 @@ export async function login(req, res) {
       });
     }
 
-    // Génération du JWT (1h pour les users)
+    // Nettoyage opportuniste des anciennes sessions (non-bloquant)
+    cleanupSessions();
+
+    // Créer une session en BDD
+    const rawSessionId = crypto.randomBytes(32).toString('hex');
+    const sessionHash = hashSessionId(rawSessionId);
+    const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_MS);
+
+    await pool.query(
+      'INSERT INTO sessions (id, user_id, expires_at, ip_address, user_agent) VALUES ($1, $2, $3, $4, $5)',
+      [sessionHash, user.id, expiresAt, req.ip || '', (req.headers['user-agent'] || '').slice(0, 500)]
+    );
+
+    // JWT avec session hash (claim sid)
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      { id: user.id, role: user.role, sid: sessionHash },
       process.env.JWT_SECRET,
       { expiresIn: JWT_USER_EXPIRY }
     );
 
-    // Stocker le JWT dans un cookie httpOnly
-    setTokenCookie(res, token, 60 * 60 * 1000); // 1h
+    // Cookie httpOnly uniquement — PAS de token dans le body
+    setTokenCookie(res, token, SESSION_MAX_AGE_MS);
 
-    logger.info('CONNEXION', { userId: user.id, role: user.role, ip: req.ip });
+    logger.info('CONNEXION', { userId: user.id, role: user.role, ip: req.ip, sessionId: sessionHash.slice(0, 8) });
 
     return res.json({
       message: 'Connexion réussie.',
-      token, // Garder temporairement pour compatibilité frontend pendant la migration
       user: {
         id: user.id,
         prenom: user.prenom,
@@ -290,7 +362,24 @@ export async function login(req, res) {
  * Déconnexion — supprime le cookie httpOnly.
  * POST /api/auth/logout
  */
-export async function logout(_req, res) {
+export async function logout(req, res) {
+  // Révoquer la session en BDD si un token valide est présent
+  try {
+    const token = req.cookies?.token;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.sid) {
+        await pool.query(
+          'UPDATE sessions SET revoked_at = NOW() WHERE id = $1',
+          [decoded.sid]
+        );
+        logger.info('DECONNEXION', { userId: decoded.id, sessionId: decoded.sid.slice(0, 8) });
+      }
+    }
+  } catch {
+    // Token invalide/expiré — on clear le cookie quand même
+  }
+
   res.clearCookie('token', {
     httpOnly: true,
     secure: IS_PROD,

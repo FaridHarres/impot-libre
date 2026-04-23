@@ -1,16 +1,7 @@
 import pool from '../db.js';
 import { toCSV } from '../utils/exportCSV.js';
 
-// Simple in-memory cache (5 min TTL)
-const cache = new Map();
-function getCached(key, ttlMs = 300000) {
-  const entry = cache.get(key);
-  if (entry && Date.now() - entry.ts < ttlMs) return entry.data;
-  return null;
-}
-function setCache(key, data) {
-  cache.set(key, { data, ts: Date.now() });
-}
+// Cache supprimé — les requêtes sont suffisamment rapides avec les index PostgreSQL
 
 /**
  * Enregistre une action dans les logs d'administration.
@@ -380,13 +371,7 @@ export async function getParticipantDetail(req, res) {
       return res.status(400).json({ message: 'ID invalide.' });
     }
 
-    // Check cache
-    const cacheKey = `participant_${userId}`;
-    const cached = getCached(cacheKey);
-    if (cached) {
-      await logAction(req.user.id, `Consultation participant #${userId} (cache)`);
-      return res.json(cached);
-    }
+    // Pas de cache — requête directe BDD
 
     // User info (no sensitive fields)
     const userResult = await pool.query(
@@ -446,7 +431,6 @@ export async function getParticipantDetail(req, res) {
     }
 
     const data = { user, allocation, poles };
-    setCache(cacheKey, data);
 
     await logAction(req.user.id, `Consultation participant #${userId} (${user.email})`);
 

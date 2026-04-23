@@ -19,9 +19,9 @@ router.get('/verify/:token', verifyEmail);
 router.post('/resend-verification', authLimiter, validate(resendVerificationSchema), resendVerification);
 
 // Password reset
-router.post('/forgot-password', resetLimiter, forgotPassword);
+router.post('/forgot-password', resetLimiter, validate(resendVerificationSchema), forgotPassword);
 router.get('/reset-password/:token', verifyResetToken);
-router.post('/reset-password/:token', resetPassword);
+router.post('/reset-password/:token', resetLimiter, resetPassword);
 
 // Deconnexion (supprime le cookie httpOnly)
 router.post('/logout', logout);

@@ -8,6 +8,60 @@ import PoleCard from '../components/budget/PoleCard';
 import BudgetSummary from '../components/budget/BudgetSummary';
 import BudgetProgressBar from '../components/budget/BudgetProgressBar';
 import Button from '../components/ui/Button';
+import polesInfo from '../data/polesInfo';
+
+const BUDGET_ARBITRABLE = 352.3;
+
+function PDFDownloadButton() {
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+
+  const handleDownload = async () => {
+    setStatus('loading');
+    try {
+      const res = await api.get('/pdf/download', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ma-repartition-impot-libre-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setStatus('success');
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch {
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 3000);
+    }
+  };
+
+  const labels = {
+    idle: 'Télécharger ma répartition en PDF',
+    loading: 'Génération en cours...',
+    success: 'Téléchargement lancé',
+    error: 'Erreur — Réessayer',
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={status === 'loading'}
+      aria-label="Télécharger ma répartition en PDF"
+      className={`w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-xl border cursor-pointer transition-all disabled:cursor-wait ${
+        status === 'success'
+          ? 'bg-success/5 border-success/20 text-success'
+          : status === 'error'
+          ? 'bg-danger/5 border-danger/20 text-danger'
+          : 'bg-white border-gris-bordure text-primary hover:bg-primary-50 hover:border-primary-200'
+      }`}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      {labels[status]}
+    </button>
+  );
+}
 
 export default function Dashboard() {
   const {
@@ -163,6 +217,76 @@ export default function Dashboard() {
                     </div>
                   ))}
               </div>
+            </div>
+          )}
+
+          {/* PDF Download */}
+          <PDFDownloadButton />
+
+          {/* Comparaison Ma répartition vs LFI 2024 */}
+          {data && data.allocations && (
+            <div className="bg-white border border-gris-bordure rounded-xl p-6 shadow-card mt-6">
+              <h2 className="text-lg font-bold text-primary mb-2">
+                Ma répartition face au Budget de la Nation
+              </h2>
+              <p className="text-xs text-gris-texte mb-5">
+                Loi de Finances 2024 — Crédits de paiement officiels
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-primary/20">
+                      <th className="text-left py-2.5 pr-3 text-primary font-semibold">Mission budgétaire</th>
+                      <th className="text-right py-2.5 px-3 text-accent font-semibold">Mon choix</th>
+                      <th className="text-right py-2.5 px-3 text-primary font-semibold">LFI 2024</th>
+                      <th className="text-right py-2.5 pl-3 font-semibold">Écart</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.allocations
+                      .sort((a, b) => b.percentage - a.percentage)
+                      .map((alloc) => {
+                        const info = polesInfo[alloc.pole_id];
+                        const officialPct = info
+                          ? parseFloat(((info.budgetTotal / BUDGET_ARBITRABLE) * 100).toFixed(1))
+                          : 0;
+                        const userPct = parseFloat(Number(alloc.percentage).toFixed(1));
+                        const ecart = parseFloat((userPct - officialPct).toFixed(1));
+                        return (
+                          <tr key={alloc.pole_id} className="border-b border-gris-bordure/50">
+                            <td className="py-2.5 pr-3 text-texte">
+                              <span className="mr-1.5">{alloc.emoji}</span>
+                              <span className="text-xs">{alloc.pole_name}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-medium text-accent">
+                              {userPct.toFixed(1)} %
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-medium text-primary">
+                              {officialPct.toFixed(1)} %
+                            </td>
+                            <td className={`py-2.5 pl-3 text-right font-bold ${
+                              ecart > 0 ? 'text-success' : ecart < 0 ? 'text-danger' : 'text-gris-texte'
+                            }`}>
+                              {ecart > 0 ? '+' : ''}{ecart.toFixed(1)} pts {ecart > 0 ? '↑' : ecart < 0 ? '↓' : ''}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex flex-col gap-1 mt-4 text-[11px] text-gris-texte">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-success">↑</span> Vous souhaitez financer davantage que ce que l&apos;État a décidé
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-danger">↓</span> Vous souhaitez financer moins que ce que l&apos;État a décidé
+                </div>
+              </div>
+              <p className="mt-4 text-[10px] text-gris-texte/50">
+                Les pourcentages LFI 2024 sont calculés sur la base des crédits de paiement des 17 missions arbitrables (352 Md€).
+                Source : Loi de Finances 2024 — budget.gouv.fr
+              </p>
             </div>
           )}
 

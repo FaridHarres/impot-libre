@@ -9,6 +9,10 @@
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /**
  * Envoie un email via l'API Brevo.
  */
@@ -75,7 +79,7 @@ export async function sendVerificationEmail(email, prenom, token) {
           <h1 style="color: #fff; margin: 0; font-size: 24px; letter-spacing: 0.5px;">Impôt Libre</h1>
         </div>
         <div style="padding: 32px 24px;">
-          <p style="font-size: 16px; color: #1E1E1E;">Bonjour <strong>${prenom}</strong>,</p>
+          <p style="font-size: 16px; color: #1E1E1E;">Bonjour <strong>${escapeHtml(prenom)}</strong>,</p>
           <p style="font-size: 15px; color: #333; line-height: 1.6;">
             Merci de votre inscription sur Impôt Libre. Pour activer votre compte
             et pouvoir soumettre votre répartition, veuillez confirmer votre adresse email
@@ -123,7 +127,7 @@ export async function sendPasswordResetEmail(email, prenom, token) {
           <h1 style="color: #fff; margin: 0; font-size: 22px;">Impôt Libre</h1>
         </div>
         <div style="padding: 32px 24px;">
-          <p style="font-size: 16px; color: #1A1A2E;">Bonjour <strong>${prenom}</strong>,</p>
+          <p style="font-size: 16px; color: #1A1A2E;">Bonjour <strong>${escapeHtml(prenom)}</strong>,</p>
           <p style="font-size: 15px; color: #374151; line-height: 1.6;">
             Vous avez demandé la réinitialisation de votre mot de passe sur impot-libre.fr.
             Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :

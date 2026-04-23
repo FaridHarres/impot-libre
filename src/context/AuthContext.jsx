@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 
 export const AuthContext = createContext(null);
@@ -7,56 +7,67 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [networkError, setNetworkError] = useState(false);
+  const retryRef = useRef(null);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
+  // Nettoyage de l'ancien localStorage (migration one-time)
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (token && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        validateToken();
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setLoading(false);
-      }
-    } else {
-      setLoading(false);
-    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   }, []);
 
-  async function validateToken() {
-    try {
-      const response = await api.get('/auth/me');
-      const userData = response.data.user || response.data;
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-    } catch {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setUser(null);
-    } finally {
-      setLoading(false);
+  // Vérification de session au montage — source de vérité unique
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSession() {
+      try {
+        const response = await api.get('/auth/me');
+        if (!cancelled) {
+          const userData = response.data.user || response.data;
+          setUser(userData);
+          setNetworkError(false);
+        }
+      } catch (err) {
+        if (cancelled) return;
+
+        if (!err.response) {
+          // Erreur réseau — ne pas déconnecter
+          setNetworkError(true);
+          // Retry toutes les 10 secondes
+          retryRef.current = setTimeout(() => {
+            if (!cancelled) checkSession();
+          }, 10000);
+        } else {
+          // 401 ou autre erreur HTTP — session invalide
+          setUser(null);
+          setNetworkError(false);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
+
+    checkSession();
+
+    return () => {
+      cancelled = true;
+      if (retryRef.current) clearTimeout(retryRef.current);
+    };
+  }, []);
 
   const login = useCallback(async (email, password) => {
     setError(null);
     setLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
-      const { token, user: userData } = response.data;
-
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      const userData = response.data.user;
       setUser(userData);
-
+      setNetworkError(false);
       return userData;
     } catch (err) {
       const message =
@@ -64,7 +75,6 @@ export function AuthProvider({ children }) {
         'Une erreur est survenue lors de la connexion.';
       setError(message);
 
-      // Propager l'erreur complète pour que Login.jsx puisse vérifier le code d'erreur
       const enrichedError = new Error(message);
       enrichedError.response = err.response;
       enrichedError.errorCode = err.response?.data?.error;
@@ -79,7 +89,6 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const response = await api.post('/auth/register', userData);
-      // NE PAS auto-login — l'utilisateur doit confirmer son email
       return response.data;
     } catch (err) {
       const message =
@@ -92,11 +101,15 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Silencieux — le cookie sera expiré de toute façon
+    }
     setUser(null);
     setError(null);
+    setNetworkError(false);
   }, []);
 
   const isAuthenticated = !!user;
@@ -106,6 +119,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     error,
+    networkError,
     isAuthenticated,
     isAdmin,
     login,

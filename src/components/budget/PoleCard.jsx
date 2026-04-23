@@ -148,19 +148,7 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
         />
       </div>
 
-      {/* Thin progress bar */}
-      <div className="h-1 bg-gray-100 rounded-full overflow-hidden mb-4">
-        <div
-          className="progress-bar h-full rounded-full"
-          style={{
-            width: `${percentage}%`,
-            background: `linear-gradient(to right, ${colors[0]}, ${colors[1]})`,
-            willChange: 'width',
-            transition: 'width 0.25s ease',
-            transform: 'translateZ(0)',
-          }}
-        />
-      </div>
+      <div className="mb-4" />
 
       {/* Percentage + Amount */}
       <div className="flex items-center justify-between">

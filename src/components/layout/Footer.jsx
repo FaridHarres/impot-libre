@@ -8,9 +8,9 @@ export default function Footer() {
           {/* Brand */}
           <div className="flex items-center gap-2.5">
             <div className="flex gap-[3px] h-6">
+              <div className="w-[4px] rounded-full" style={{ background: '#003189' }} />
               <div className="w-[4px] bg-white/80 rounded-full" />
-              <div className="w-[4px] bg-white/40 rounded-full" />
-              <div className="w-[4px] bg-danger/80 rounded-full" />
+              <div className="w-[4px] rounded-full" style={{ background: '#E1000F' }} />
             </div>
             <span className="text-base font-bold tracking-tight text-white/90">
               Impôt Libre
@@ -41,7 +41,7 @@ export default function Footer() {
 
           {/* Tagline */}
           <p className="text-sm text-white/40">
-            Un projet citoyen
+            Fait par un contribuable qui voulait avoir son mot à dire.
           </p>
         </div>
 

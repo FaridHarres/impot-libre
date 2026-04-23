@@ -72,16 +72,15 @@ export default function Resultats() {
         {!loading && !error && stats && sortedPoles.length > 0 && (
           <>
             {/* Participant counter */}
-            <div className="bg-hero-gradient text-white rounded-2xl p-8 mb-10 text-center shadow-glass animate-fade-in">
-              <p className="text-sm text-white/60 mb-1">Nombre de participants</p>
-              <p className="text-5xl font-extrabold tracking-tight">
+            <div className="bg-white border-l-4 border-accent rounded-lg p-6 mb-10 flex items-baseline gap-3 shadow-card animate-fade-in">
+              <span className="text-3xl font-extrabold text-primary tracking-tight">
                 {totalParticipants.toLocaleString('fr-FR')}
-              </p>
-              <p className="text-sm text-white/60 mt-2">
+              </span>
+              <span className="text-sm text-gris-texte">
                 {totalParticipants === 1
-                  ? 'citoyen a exprimé ses priorités'
-                  : 'citoyens ont exprimé leurs priorités'}
-              </p>
+                  ? 'contribution enregistrée'
+                  : 'contributions enregistrées'}
+              </span>
             </div>
 
             {/* Pole bars */}

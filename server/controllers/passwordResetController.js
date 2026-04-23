@@ -239,14 +239,20 @@ export async function resetPassword(req, res) {
       [tokenRow.id]
     );
 
-    // Invalidate ALL tokens for this user
+    // Invalidate ALL reset tokens for this user
     await pool.query(
       `UPDATE password_reset_tokens SET used_at = NOW()
        WHERE user_id = $1 AND used_at IS NULL`,
       [user.id]
     );
 
-    logger.info('RESET_REUSSI', { userId: user.id, ip });
+    // Révoquer TOUTES les sessions actives de cet utilisateur (tous appareils)
+    await pool.query(
+      'UPDATE sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+      [user.id]
+    );
+
+    logger.info('RESET_REUSSI', { userId: user.id, ip, sessionsRevoked: true });
 
     return res.json({
       message: 'Mot de passe mis à jour avec succès. Veuillez vous reconnecter.',

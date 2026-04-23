@@ -14,6 +14,7 @@ import allocationRoutes from './routes/allocationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
 import ministereRoutes from './routes/ministereRoutes.js';
+import pdfRoutes from './routes/pdfRoutes.js';
 import adminAuthRoutes from './routes/adminAuthRoutes.js';
 
 const app = express();
@@ -58,8 +59,10 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').spli
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permettre les requêtes sans origin (apps mobiles, curl, etc.)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (origin && allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else if (!origin && !IS_PROD) {
+        // Autoriser curl/Postman en dev uniquement
         callback(null, true);
       } else {
         callback(new Error('CORS non autorisé'));
@@ -77,9 +80,49 @@ app.use(generalLimiter);
 // Parser JSON (limite à 100 Ko pour éviter les abus)
 app.use(express.json({ limit: '100kb' }));
 
+// CSRF protection — double-submit cookie pattern
+// Le serveur set un token CSRF dans un cookie lisible par JS
+// Le frontend le renvoie dans le header X-CSRF-Token
+// Le middleware vérifie que les deux correspondent
+import crypto from 'crypto';
+
+app.use((req, res, next) => {
+  // Set CSRF cookie on GET requests (lisible par JS, pas httpOnly)
+  if (req.method === 'GET' && !req.cookies.csrf_token) {
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: IS_PROD,
+      sameSite: IS_PROD ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 1000,
+    });
+  }
+
+  // Vérifier CSRF sur les requêtes mutatives (POST, PUT, DELETE, PATCH)
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    const cookieToken = req.cookies.csrf_token;
+    const headerToken = req.headers['x-csrf-token'];
+
+    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+      // Exempter les routes publiques sans session (login, register, forgot-password)
+      const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/resend-verification', '/api/newsletter/subscribe'];
+      const isExempt = exemptPaths.some((p) => req.path.startsWith(p));
+
+      if (!isExempt && req.cookies.token) {
+        // Seulement bloquer si l'utilisateur est authentifié (a un cookie session)
+        return res.status(403).json({ message: 'Token CSRF invalide.', error: 'csrf_invalid' });
+      }
+    }
+  }
+
+  next();
+});
+
 // === Montage des routes ===
 app.use('/api/auth', authRoutes);
 app.use('/api/ministeres', ministereRoutes);
+app.use('/api/pdf', pdfRoutes);
 app.use('/api/allocations', allocationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin-auth', adminAuthRoutes);

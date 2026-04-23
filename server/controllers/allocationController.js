@@ -190,7 +190,7 @@ export async function getMyAllocation(req, res) {
     );
 
     if (allocResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Aucune allocation trouvée.' });
+      return res.json({ totalAmount: 0, allocations: [] });
     }
 
     const allocation = allocResult.rows[0];

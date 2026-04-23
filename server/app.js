@@ -86,33 +86,35 @@ app.use(express.json({ limit: '100kb' }));
 // Le frontend le renvoie dans le header X-CSRF-Token
 // Le middleware vérifie que les deux correspondent
 app.use((req, res, next) => {
-  // Set CSRF cookie on GET requests (lisible par JS, pas httpOnly)
-  if (req.method === 'GET' && !req.cookies.csrf_token) {
-    const csrfToken = crypto.randomBytes(32).toString('hex');
-    res.cookie('csrf_token', csrfToken, {
-      httpOnly: false,
-      secure: IS_PROD,
-      sameSite: IS_PROD ? 'none' : 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 1000,
-    });
-  }
+  try {
+    // Set CSRF cookie on GET requests (lisible par JS, pas httpOnly)
+    if (req.method === 'GET' && req.cookies && !req.cookies.csrf_token) {
+      const csrfToken = crypto.randomBytes(32).toString('hex');
+      res.cookie('csrf_token', csrfToken, {
+        httpOnly: false,
+        secure: IS_PROD,
+        sameSite: IS_PROD ? 'none' : 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 1000,
+      });
+    }
 
-  // Vérifier CSRF sur les requêtes mutatives (POST, PUT, DELETE, PATCH)
-  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
-    const cookieToken = req.cookies.csrf_token;
-    const headerToken = req.headers['x-csrf-token'];
+    // Vérifier CSRF sur les requêtes mutatives (POST, PUT, DELETE, PATCH)
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+      const cookieToken = req.cookies?.csrf_token;
+      const headerToken = req.headers['x-csrf-token'];
 
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-      // Exempter les routes publiques sans session (login, register, forgot-password)
-      const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/resend-verification', '/api/newsletter/subscribe'];
-      const isExempt = exemptPaths.some((p) => req.path.startsWith(p));
+      if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+        const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/resend-verification', '/api/newsletter/subscribe'];
+        const isExempt = exemptPaths.some((p) => req.path.startsWith(p));
 
-      if (!isExempt && req.cookies.token) {
-        // Seulement bloquer si l'utilisateur est authentifié (a un cookie session)
-        return res.status(403).json({ message: 'Token CSRF invalide.', error: 'csrf_invalid' });
+        if (!isExempt && req.cookies?.token) {
+          return res.status(403).json({ message: 'Token CSRF invalide.', error: 'csrf_invalid' });
+        }
       }
     }
+  } catch (err) {
+    console.error('[CSRF] Erreur middleware:', err.message);
   }
 
   next();
@@ -150,7 +152,8 @@ app.use((err, req, res, _next) => {
   });
 
   res.status(500).json({
-    error: IS_PROD ? 'Erreur interne du serveur.' : err.message,
+    error: err.message,
+    stack: err.stack?.split('\n').slice(0, 3),
   });
 });
 

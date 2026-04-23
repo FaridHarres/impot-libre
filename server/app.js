@@ -93,7 +93,7 @@ app.use((req, res, next) => {
     res.cookie('csrf_token', csrfToken, {
       httpOnly: false,
       secure: IS_PROD,
-      sameSite: IS_PROD ? 'strict' : 'lax',
+      sameSite: IS_PROD ? 'none' : 'lax',
       path: '/',
       maxAge: 60 * 60 * 1000,
     });

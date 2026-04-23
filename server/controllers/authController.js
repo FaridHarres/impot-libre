@@ -32,10 +32,12 @@ function cleanupSessions() {
  * Helper : configure le cookie httpOnly contenant le JWT.
  */
 function setTokenCookie(res, token, maxAgeMs = 60 * 60 * 1000) {
+  // Cross-origin (frontend ≠ backend domain) → sameSite: 'none' + secure: true
+  // Same-origin (localhost dev) → sameSite: 'lax'
   res.cookie('token', token, {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: IS_PROD ? 'strict' : 'lax',
+    sameSite: IS_PROD ? 'none' : 'lax',
     maxAge: maxAgeMs,
     path: '/',
   });
@@ -383,7 +385,7 @@ export async function logout(req, res) {
   res.clearCookie('token', {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: IS_PROD ? 'strict' : 'lax',
+    sameSite: IS_PROD ? 'none' : 'lax',
     path: '/',
   });
   return res.json({ message: 'Déconnexion réussie.' });

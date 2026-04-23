@@ -64,15 +64,16 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
 
   const handleInputChange = useCallback(
     (e) => {
-      const raw = e.target.value;
-      if (raw === '') return;
+      const raw = e.target.value.replace(',', '.');
+      if (raw === '' || raw === '.') return;
       const val = parseFloat(raw);
       if (isNaN(val)) return;
+      const clamped = Math.min(Math.max(val, minimum), 100);
       if (onSliderChange) {
-        onSliderChange(id, val);
+        onSliderChange(id, clamped);
       }
     },
-    [id, onSliderChange]
+    [id, minimum, onSliderChange]
   );
 
   return (
@@ -163,28 +164,26 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
 
       {/* Percentage + Amount */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-white px-3 py-1 rounded-full font-bold text-sm shadow-sm"
-            style={{ background: `linear-gradient(135deg, ${colors[0]}, ${colors[1]})` }}
+        <div className="pole-input-group">
+          <div
+            className="pole-input-wrapper"
+            style={{ '--pole-color': colors[0], '--pole-color-end': colors[1] }}
           >
-            {percentage.toFixed(1)} %
-          </span>
-          <input
-            type="number"
-            value={percentage}
-            onChange={handleInputChange}
-            min={minimum}
-            max={maxDynamique}
-            step={0.1}
-            disabled={isDisabled}
-            className="w-16 px-2 py-1 text-sm text-right border border-gris-bordure rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent disabled:bg-gray-50 disabled:cursor-not-allowed"
-            aria-label={`Pourcentage pour ${name}`}
-          />
+            <input
+              type="text"
+              inputMode="decimal"
+              value={percentage.toFixed(1)}
+              onChange={handleInputChange}
+              disabled={isDisabled}
+              className="pole-input-field"
+              aria-label={`Pourcentage pour ${name}`}
+            />
+            <span className="pole-input-suffix">%</span>
+          </div>
         </div>
 
         <span
-          className={`text-sm font-semibold px-3 py-1 rounded-full ${
+          className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
             hasTaxAmount
               ? 'bg-accent-50 text-accent border border-accent/20'
               : 'bg-gray-50 text-gris-texte border border-gris-bordure'

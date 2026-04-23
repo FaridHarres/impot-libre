@@ -45,11 +45,8 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
   );
 
   const fillPercent = useMemo(
-    () =>
-      maxDynamique > minimum
-        ? ((percentage - minimum) / (maxDynamique - minimum)) * 100
-        : percentage > minimum ? 100 : 0,
-    [percentage, minimum, maxDynamique]
+    () => percentage > 0 ? (percentage / 100) * 100 : 0,
+    [percentage]
   );
 
   const handleSliderChange = useCallback(

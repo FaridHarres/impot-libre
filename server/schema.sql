@@ -52,8 +52,9 @@ CREATE INDEX IF NOT EXISTS idx_ministeres_slug ON ministeres (slug);
 CREATE TABLE IF NOT EXISTS allocations (
     id           SERIAL PRIMARY KEY,
     user_id      INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    total_amount NUMERIC(12,2) NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    total_amount      NUMERIC(12,2) NOT NULL,
+    structure_version INTEGER NOT NULL DEFAULT 2,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_allocations_user_id ON allocations (user_id);
@@ -110,21 +111,30 @@ CREATE INDEX IF NOT EXISTS idx_poles_slug ON poles (slug);
 -- =============================================================
 
 INSERT INTO poles (id, name, slug, emoji, minimum_percentage) VALUES
-    (1, 'Éducation & Savoir',         'education-savoir',        '🎓', 3),
-    (2, 'Santé & Solidarité',         'sante-solidarite',        '🏥', 3),
-    (3, 'Sécurité & Justice',         'securite-justice',        '🛡️', 3),
-    (4, 'Économie & Finances',        'economie-finances',       '💰', 3),
-    (5, 'Environnement & Territoire', 'environnement-territoire','🌱', 3),
-    (6, 'International & Europe',     'international-europe',    '🌍', 3),
-    (7, 'Sport & Vie citoyenne',      'sport-citoyenne',         '🏃', 3),
-    (8, 'Institutions & État',        'institutions-etat',       '🏛️', 3)
+    ( 1, 'Enseignement scolaire',                    'enseignement-scolaire',            '🎓', 1),
+    ( 2, 'Recherche et enseignement supérieur',      'recherche-enseignement-superieur',  '🔬', 1),
+    ( 3, 'Défense',                                  'defense',                           '🛡️', 1),
+    ( 4, 'Sécurités et justice',                     'securites-justice',                 '⚖️', 1),
+    ( 5, 'Santé',                                    'sante',                             '🏥', 1),
+    ( 6, 'Solidarité et insertion',                  'solidarite-insertion',              '🤝', 1),
+    ( 7, 'Travail et emploi',                        'travail-emploi',                    '💼', 1),
+    ( 8, 'Logement et territoires',                  'logement-territoires',              '🏠', 1),
+    ( 9, 'Écologie et agriculture',                  'ecologie-agriculture',              '🌱', 1),
+    (10, 'Économie et finances publiques',           'economie-finances-publiques',       '💰', 1),
+    (11, 'Culture et médias',                        'culture-medias',                    '🎭', 1),
+    (12, 'Action internationale',                    'action-internationale',             '🌍', 1),
+    (13, 'Outre-mer',                                'outre-mer-pole',                    '🏝️', 1),
+    (14, 'Immigration et intégration',               'immigration-integration',           '🛂', 1),
+    (15, 'Investissement et innovation',             'investissement-innovation',         '🚀', 1),
+    (16, 'Sport, jeunesse et mémoire nationale',     'sport-jeunesse-memoire',            '🏅', 1),
+    (17, 'Institutions et gouvernance',              'institutions-gouvernance',          '🏛️', 1)
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     slug = EXCLUDED.slug,
     emoji = EXCLUDED.emoji,
     minimum_percentage = EXCLUDED.minimum_percentage;
 
-SELECT setval('poles_id_seq', 8);
+SELECT setval('poles_id_seq', 17);
 
 -- =============================================================
 -- Seed : 20 ministères rattachés à leur pôle

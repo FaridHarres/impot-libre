@@ -37,13 +37,16 @@ export async function getDashboard(req, res) {
       "SELECT COUNT(*)::int AS total FROM users WHERE role = 'user'"
     );
     const totalAllocations = await pool.query(
-      'SELECT COUNT(*)::int AS total FROM allocations'
+      'SELECT COUNT(*)::int AS total FROM allocations WHERE structure_version = 2'
+    );
+    const totalAllocationsV1 = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM allocations WHERE structure_version = 1'
     );
     const todayAllocations = await pool.query(
-      "SELECT COUNT(*)::int AS total FROM allocations WHERE created_at::date = CURRENT_DATE"
+      "SELECT COUNT(*)::int AS total FROM allocations WHERE created_at::date = CURRENT_DATE AND structure_version = 2"
     );
     const avgAmount = await pool.query(
-      'SELECT ROUND(AVG(total_amount), 2) AS moyenne FROM allocations'
+      'SELECT ROUND(AVG(total_amount), 2) AS moyenne FROM allocations WHERE structure_version = 2'
     );
     const suspectCount = await pool.query(`
       SELECT COUNT(*) AS total FROM (
@@ -69,6 +72,7 @@ export async function getDashboard(req, res) {
       LEFT JOIN (
         SELECT ad.allocation_id, m.pole_id, SUM(ad.percentage) AS pole_pct
         FROM allocations_detail ad
+        JOIN allocations a ON a.id = ad.allocation_id AND a.structure_version = 2
         JOIN ministeres m ON m.id = ad.ministere_id
         GROUP BY ad.allocation_id, m.pole_id
       ) sub ON sub.pole_id = p.id
@@ -85,6 +89,7 @@ export async function getDashboard(req, res) {
       LEFT JOIN (
         SELECT ad.allocation_id, m.pole_id, SUM(ad.percentage) AS pole_pct
         FROM allocations_detail ad
+        JOIN allocations a ON a.id = ad.allocation_id AND a.structure_version = 2
         JOIN ministeres m ON m.id = ad.ministere_id
         GROUP BY ad.allocation_id, m.pole_id
       ) sub ON sub.pole_id = p.id
@@ -100,6 +105,7 @@ export async function getDashboard(req, res) {
       FROM (
         SELECT ad.allocation_id, m.pole_id, SUM(ad.percentage) AS pole_pct
         FROM allocations_detail ad
+        JOIN allocations a ON a.id = ad.allocation_id AND a.structure_version = 2
         JOIN ministeres m ON m.id = ad.ministere_id
         GROUP BY ad.allocation_id, m.pole_id
       ) sub
@@ -137,6 +143,7 @@ export async function getDashboard(req, res) {
     return res.json({
       total_utilisateurs: totalUsers.rows[0].total,
       total_allocations: totalAllocations.rows[0].total,
+      total_allocations_v1: totalAllocationsV1.rows[0].total,
       allocations_aujourdhui: todayAllocations.rows[0].total,
       montant_moyen: parseFloat(avgAmount.rows[0].moyenne) || 0,
       comptes_suspects: parseInt(suspectCount.rows[0].total) || 0,

@@ -45,9 +45,9 @@ export async function submitAllocation(req, res) {
       });
     }
 
-    // Vérifier que l'utilisateur n'a pas déjà soumis
+    // Vérifier que l'utilisateur n'a pas déjà soumis sur la structure actuelle (v2)
     const existingAlloc = await client.query(
-      'SELECT id FROM allocations WHERE user_id = $1',
+      'SELECT id FROM allocations WHERE user_id = $1 AND structure_version = 2',
       [userId]
     );
 
@@ -127,7 +127,7 @@ export async function submitAllocation(req, res) {
     await client.query('BEGIN');
 
     const allocResult = await client.query(
-      'INSERT INTO allocations (user_id, total_amount) VALUES ($1, $2) RETURNING id',
+      'INSERT INTO allocations (user_id, total_amount, structure_version) VALUES ($1, $2, 2) RETURNING id',
       [userId, totalAmount]
     );
     const allocationId = allocResult.rows[0].id;
@@ -185,7 +185,7 @@ export async function submitAllocation(req, res) {
 export async function getMyAllocation(req, res) {
   try {
     const allocResult = await pool.query(
-      'SELECT id, total_amount, created_at FROM allocations WHERE user_id = $1',
+      'SELECT id, total_amount, created_at FROM allocations WHERE user_id = $1 AND structure_version = 2',
       [req.user.id]
     );
 
@@ -263,12 +263,12 @@ export async function getPublicStats(req, res) {
       FROM poles p
       LEFT JOIN ministeres m ON m.pole_id = p.id
       LEFT JOIN allocations_detail ad ON ad.ministere_id = m.id
-      LEFT JOIN allocations a ON a.id = ad.allocation_id
+      LEFT JOIN allocations a ON a.id = ad.allocation_id AND a.structure_version = 2
       GROUP BY p.id, p.name, p.slug, p.emoji, p.minimum_percentage
       ORDER BY p.id
     `);
 
-    const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM allocations');
+    const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM allocations WHERE structure_version = 2');
     const totalAllocations = totalResult.rows[0].total;
 
     const poles = result.rows.map((r) => ({

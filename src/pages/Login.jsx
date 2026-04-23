@@ -178,6 +178,12 @@ export default function Login() {
             <Button type="submit" loading={loading} className="w-full mt-2">
               Se connecter
             </Button>
+
+            <div className="text-center mt-3">
+              <Link to="/mot-de-passe-oublie" className="text-xs text-gris-texte hover:text-accent transition-colors">
+                Mot de passe oublié ?
+              </Link>
+            </div>
           </form>
 
           <p className="text-sm text-gris-texte text-center mt-6">

@@ -23,6 +23,17 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Limiteur reset mot de passe : 3 par 30 minutes par IP.
+ */
+export const resetLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de demandes. Veuillez réessayer dans 30 minutes.' },
+});
+
+/**
  * Limiteur inscription : 3 comptes par heure par IP.
  */
 export const registerLimiter = rateLimit({

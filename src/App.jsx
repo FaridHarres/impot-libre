@@ -12,6 +12,8 @@ import Register from './pages/Register';
 // Lazy-loaded pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Resultats = lazy(() => import('./pages/Resultats'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const MentionsLegales = lazy(() => import('./pages/MentionsLegales'));
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -105,6 +107,8 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/inscription" element={<Register />} />
             <Route path="/connexion" element={<Login />} />
+            <Route path="/mot-de-passe-oublie" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route
               path="/repartition"
               element={

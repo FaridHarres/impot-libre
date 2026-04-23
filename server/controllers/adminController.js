@@ -55,50 +55,64 @@ export async function getDashboard(req, res) {
       ) sub
     `);
 
-    // ─── Stats par ministère : moyenne, médiane, min, max, écart-type ───
+    // ─── Stats par pôle : moyenne, médiane, min, max, écart-type ───
+    // Sous-requête : pour chaque (allocation, pôle), sommer les % des ministères du pôle
     const statsResult = await pool.query(`
       SELECT
-        m.id,
-        m.name,
-        m.slug,
-        m.minimum_percentage,
-        COUNT(ad.id)::int AS nb_participants,
-        ROUND(AVG(ad.percentage), 2) AS moyenne,
-        ROUND(MIN(ad.percentage), 2) AS min_percent,
-        ROUND(MAX(ad.percentage), 2) AS max_percent,
-        ROUND(STDDEV(ad.percentage), 2) AS ecart_type
-      FROM ministeres m
-      LEFT JOIN allocations_detail ad ON ad.ministere_id = m.id
-      GROUP BY m.id, m.name, m.slug, m.minimum_percentage
+        p.id, p.name, p.slug, p.emoji, p.minimum_percentage,
+        COUNT(DISTINCT sub.allocation_id)::int AS nb_participants,
+        ROUND(AVG(sub.pole_pct), 2) AS moyenne,
+        ROUND(MIN(sub.pole_pct), 2) AS min_percent,
+        ROUND(MAX(sub.pole_pct), 2) AS max_percent,
+        ROUND(STDDEV(sub.pole_pct), 2) AS ecart_type
+      FROM poles p
+      LEFT JOIN (
+        SELECT ad.allocation_id, m.pole_id, SUM(ad.percentage) AS pole_pct
+        FROM allocations_detail ad
+        JOIN ministeres m ON m.id = ad.ministere_id
+        GROUP BY ad.allocation_id, m.pole_id
+      ) sub ON sub.pole_id = p.id
+      GROUP BY p.id, p.name, p.slug, p.emoji, p.minimum_percentage
       ORDER BY moyenne DESC NULLS LAST
     `);
 
-    // Médiane par ministère
+    // Médiane par pôle
     const medianResult = await pool.query(`
       SELECT
-        m.id,
-        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ad.percentage)::numeric, 2) AS mediane
-      FROM ministeres m
-      LEFT JOIN allocations_detail ad ON ad.ministere_id = m.id
-      GROUP BY m.id
+        p.id,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sub.pole_pct)::numeric, 2) AS mediane
+      FROM poles p
+      LEFT JOIN (
+        SELECT ad.allocation_id, m.pole_id, SUM(ad.percentage) AS pole_pct
+        FROM allocations_detail ad
+        JOIN ministeres m ON m.id = ad.ministere_id
+        GROUP BY ad.allocation_id, m.pole_id
+      ) sub ON sub.pole_id = p.id
+      GROUP BY p.id
     `);
     const medianMap = new Map(medianResult.rows.map((r) => [r.id, parseFloat(r.mediane) || 0]));
 
-    // Moyenne en euros par ministère
+    // Moyenne en euros par pôle
     const eurosResult = await pool.query(`
       SELECT
-        ad.ministere_id,
-        ROUND(AVG((ad.percentage / 100.0) * a.total_amount), 2) AS moyenne_euros
-      FROM allocations_detail ad
-      JOIN allocations a ON a.id = ad.allocation_id
-      GROUP BY ad.ministere_id
+        sub.pole_id,
+        ROUND(AVG((sub.pole_pct / 100.0) * a.total_amount), 2) AS moyenne_euros
+      FROM (
+        SELECT ad.allocation_id, m.pole_id, SUM(ad.percentage) AS pole_pct
+        FROM allocations_detail ad
+        JOIN ministeres m ON m.id = ad.ministere_id
+        GROUP BY ad.allocation_id, m.pole_id
+      ) sub
+      JOIN allocations a ON a.id = sub.allocation_id
+      GROUP BY sub.pole_id
     `);
-    const eurosMap = new Map(eurosResult.rows.map((r) => [r.ministere_id, parseFloat(r.moyenne_euros) || 0]));
+    const eurosMap = new Map(eurosResult.rows.map((r) => [r.pole_id, parseFloat(r.moyenne_euros) || 0]));
 
-    const ministeres = statsResult.rows.map((s) => ({
+    const poles = statsResult.rows.map((s) => ({
       id: s.id,
       name: s.name,
       slug: s.slug,
+      emoji: s.emoji,
       minimum_percentage: parseFloat(s.minimum_percentage),
       nb_participants: s.nb_participants,
       moyenne: parseFloat(s.moyenne) || 0,
@@ -126,7 +140,7 @@ export async function getDashboard(req, res) {
       allocations_aujourdhui: todayAllocations.rows[0].total,
       montant_moyen: parseFloat(avgAmount.rows[0].moyenne) || 0,
       comptes_suspects: parseInt(suspectCount.rows[0].total) || 0,
-      ministeres,
+      poles,
       activite_recente: logsResult.rows.map((l) => ({
         action: l.action,
         admin: l.admin_email,

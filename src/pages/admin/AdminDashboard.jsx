@@ -54,17 +54,17 @@ export default function AdminDashboard() {
   }
 
   const stats = dashboard;
-  const ministeres = stats.ministeres || [];
+  const poles = stats.poles || [];
 
   // Données pour recharts
-  const chartData = ministeres.map((m) => ({
-    name: m.name,
-    value: m.moyenne,
-    participants: m.nb_participants,
-    moyenne_euros: m.moyenne_euros,
-    mediane: m.mediane,
-    min: m.min_percent,
-    max: m.max_percent,
+  const chartData = poles.map((p) => ({
+    name: `${p.emoji} ${p.name}`,
+    value: p.moyenne,
+    participants: p.nb_participants,
+    moyenne_euros: p.moyenne_euros,
+    mediane: p.mediane,
+    min: p.min_percent,
+    max: p.max_percent,
   }));
 
   return (
@@ -158,11 +158,11 @@ export default function AdminDashboard() {
         </div>
 
         {/* ─── Graphiques ─── */}
-        {ministeres.length > 0 && (
+        {poles.length > 0 && (
           <div className="bg-white border border-gris-bordure rounded-sm p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-texte">
-                Répartition moyenne par ministère
+                Répartition moyenne par pôle
               </h2>
               <div className="flex gap-2">
                 <Button
@@ -238,16 +238,16 @@ export default function AdminDashboard() {
         )}
 
         {/* ─── Tableau détaillé ─── */}
-        {ministeres.length > 0 && (
+        {poles.length > 0 && (
           <div className="bg-white border border-gris-bordure rounded-sm p-6 mb-8">
             <h2 className="text-lg font-semibold text-texte mb-4">
-              Statistiques détaillées
+              Statistiques détaillées par pôle
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-bleu-republique">
-                    <th className="text-left py-2 pr-3 font-semibold text-texte">Ministère</th>
+                    <th className="text-left py-2 pr-3 font-semibold text-texte">Pôle</th>
                     <th className="text-right py-2 px-2 font-semibold text-texte">Part.</th>
                     <th className="text-right py-2 px-2 font-semibold text-bleu-republique">Moy. %</th>
                     <th className="text-right py-2 px-2 font-semibold text-gris-texte">Méd. %</th>
@@ -257,24 +257,24 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ministeres.map((m, i) => (
-                    <tr key={m.id} className="border-b border-gris-bordure/50 hover:bg-fond/50">
+                  {poles.map((p, i) => (
+                    <tr key={p.id} className="border-b border-gris-bordure/50 hover:bg-fond/50">
                       <td className="py-2 pr-3 text-texte">
                         <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded-sm shrink-0"
                             style={{ backgroundColor: COLORS[i % COLORS.length] }}
                           />
-                          {m.name}
+                          {p.emoji} {p.name}
                         </div>
                       </td>
-                      <td className="py-2 px-2 text-right text-gris-texte">{m.nb_participants}</td>
-                      <td className="py-2 px-2 text-right font-bold text-bleu-republique">{m.moyenne}%</td>
-                      <td className="py-2 px-2 text-right text-gris-texte">{m.mediane}%</td>
-                      <td className="py-2 px-2 text-right text-gris-texte">{m.min_percent}%</td>
-                      <td className="py-2 px-2 text-right text-gris-texte">{m.max_percent}%</td>
+                      <td className="py-2 px-2 text-right text-gris-texte">{p.nb_participants}</td>
+                      <td className="py-2 px-2 text-right font-bold text-bleu-republique">{p.moyenne}%</td>
+                      <td className="py-2 px-2 text-right text-gris-texte">{p.mediane}%</td>
+                      <td className="py-2 px-2 text-right text-gris-texte">{p.min_percent}%</td>
+                      <td className="py-2 px-2 text-right text-gris-texte">{p.max_percent}%</td>
                       <td className="py-2 pl-2 text-right font-semibold text-bleu-republique">
-                        {formatCurrency(m.moyenne_euros)}
+                        {formatCurrency(p.moyenne_euros)}
                       </td>
                     </tr>
                   ))}

@@ -132,29 +132,29 @@ SELECT setval('poles_id_seq', 8);
 -- =============================================================
 
 INSERT INTO ministeres (id, name, slug, minimum_percentage) VALUES
-    (1,  'Éducation nationale',                     'education-nationale',         0),
-    (2,  'Économie et Finances',                    'economie-finances',           0),
-    (3,  'Défense',                                 'defense',                     0),
-    (4,  'Santé et Prévention',                     'sante-prevention',            0),
-    (5,  'Intérieur',                               'interieur',                   0),
-    (6,  'Justice',                                 'justice',                     0),
-    (7,  'Travail et Emploi',                       'travail-emploi',              0),
-    (8,  'Transition écologique',                   'transition-ecologique',       0),
-    (9,  'Enseignement supérieur et Recherche',     'enseignement-superieur',      0),
-    (10, 'Agriculture et Souveraineté alimentaire', 'agriculture',                 0),
-    (11, 'Logement',                                'logement',                    0),
-    (12, 'Transports',                              'transports',                  0),
-    (13, 'Culture',                                 'culture',                     0),
-    (14, 'Sport',                                   'sport',                       0),
-    (15, 'Europe et Affaires étrangères',           'affaires-etrangeres',         0),
-    (16, 'Outre-Mer',                               'outre-mer',                   0),
-    (17, 'Cohésion des territoires',                'cohesion-territoires',        0),
-    (18, 'Fonction publique',                       'fonction-publique',           0),
-    (19, 'Numérique',                               'numerique',                   0),
-    (20, 'Anciens combattants',                     'anciens-combattants',         0),
-    (21, 'Services du Premier ministre',            'premier-ministre',            0),
-    (22, 'Parlement',                               'parlement',                   0),
-    (23, 'Conseil d''État',                          'conseil-etat',                0)
+    (1,  'Enseignement scolaire',                                      'enseignement-scolaire',              0),
+    (2,  'Économie',                                                   'economie',                           0),
+    (3,  'Défense',                                                    'defense',                            0),
+    (4,  'Santé',                                                      'sante',                              0),
+    (5,  'Sécurités',                                                  'securites',                          0),
+    (6,  'Justice',                                                    'justice',                            0),
+    (7,  'Travail et emploi',                                          'travail-emploi',                     0),
+    (8,  'Écologie, développement et mobilité durables',               'ecologie-mobilite-durables',         0),
+    (9,  'Recherche et enseignement supérieur',                        'recherche-enseignement-superieur',   0),
+    (10, 'Agriculture, alimentation, forêt et affaires rurales',       'agriculture-alimentation-foret',     0),
+    (11, 'Logement',                                                   'logement',                           0),
+    (12, 'Transports',                                                 'transports',                         0),
+    (13, 'Culture',                                                    'culture',                            0),
+    (14, 'Sport, jeunesse et vie associative',                         'sport-jeunesse-vie-associative',     0),
+    (15, 'Action extérieure de l''État',                                'action-exterieure-etat',             0),
+    (16, 'Outre-mer',                                                  'outre-mer',                          0),
+    (17, 'Cohésion des territoires',                                   'cohesion-territoires',               0),
+    (18, 'Transformation et fonction publiques',                       'transformation-fonction-publiques',  0),
+    (19, 'Économie numérique',                                         'economie-numerique',                 0),
+    (20, 'Anciens combattants, mémoire et liens avec la Nation',       'anciens-combattants-memoire',        0),
+    (21, 'Direction de l''action du Gouvernement',                      'direction-action-gouvernement',      0),
+    (22, 'Pouvoirs publics',                                           'pouvoirs-publics',                   0),
+    (23, 'Conseil et contrôle de l''État',                              'conseil-controle-etat',              0)
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     slug = EXCLUDED.slug,
@@ -174,14 +174,14 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_ministeres_pole_id ON ministeres (pole_id);
 
 -- Rattachement des ministères à leur pôle
-UPDATE ministeres SET pole_id = 1 WHERE slug IN ('education-nationale', 'enseignement-superieur', 'culture');
-UPDATE ministeres SET pole_id = 2 WHERE slug IN ('sante-prevention', 'travail-emploi', 'cohesion-territoires');
-UPDATE ministeres SET pole_id = 3 WHERE slug IN ('defense', 'interieur', 'justice');
-UPDATE ministeres SET pole_id = 4 WHERE slug IN ('economie-finances', 'numerique', 'fonction-publique');
-UPDATE ministeres SET pole_id = 5 WHERE slug IN ('transition-ecologique', 'logement', 'transports', 'agriculture');
-UPDATE ministeres SET pole_id = 6 WHERE slug IN ('affaires-etrangeres', 'outre-mer');
-UPDATE ministeres SET pole_id = 7 WHERE slug IN ('sport', 'anciens-combattants');
-UPDATE ministeres SET pole_id = 8 WHERE slug IN ('premier-ministre', 'parlement', 'conseil-etat');
+UPDATE ministeres SET pole_id = 1 WHERE slug IN ('enseignement-scolaire', 'recherche-enseignement-superieur', 'culture');
+UPDATE ministeres SET pole_id = 2 WHERE slug IN ('sante', 'travail-emploi', 'cohesion-territoires');
+UPDATE ministeres SET pole_id = 3 WHERE slug IN ('defense', 'securites', 'justice');
+UPDATE ministeres SET pole_id = 4 WHERE slug IN ('economie', 'economie-numerique', 'transformation-fonction-publiques');
+UPDATE ministeres SET pole_id = 5 WHERE slug IN ('ecologie-mobilite-durables', 'logement', 'transports', 'agriculture-alimentation-foret');
+UPDATE ministeres SET pole_id = 6 WHERE slug IN ('action-exterieure-etat', 'outre-mer');
+UPDATE ministeres SET pole_id = 7 WHERE slug IN ('sport-jeunesse-vie-associative', 'anciens-combattants-memoire');
+UPDATE ministeres SET pole_id = 8 WHERE slug IN ('direction-action-gouvernement', 'pouvoirs-publics', 'conseil-controle-etat');
 
 -- =============================================================
 -- Migration : si la BDD existe déjà, ajouter les colonnes manquantes

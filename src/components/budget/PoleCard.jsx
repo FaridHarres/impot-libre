@@ -1,6 +1,8 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import useBudget from '../../hooks/useBudget';
 import { formatCurrency } from '../../utils/formatCurrency';
+import polesInfo from '../../data/polesInfo';
+import PoleInfoModal from './PoleInfoModal';
 
 const POLE_GRADIENTS = [
   'from-blue-500 to-blue-700',
@@ -27,6 +29,8 @@ const POLE_COLORS_HEX = [
 const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSliderChange }) {
   const { id, name, emoji, minimum, percentage, ministeres } = pole;
   const { remaining } = useBudget();
+  const [showModal, setShowModal] = useState(false);
+  const info = polesInfo[id];
 
   const isAtMinimum = percentage <= minimum;
   const maxDynamique = parseFloat((percentage + Math.max(0, remaining)).toFixed(1));
@@ -110,6 +114,21 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
         </div>
       </div>
 
+      {/* Description + En savoir plus */}
+      {info && (
+        <div className="mb-3">
+          <p className="text-[11px] text-gris-texte leading-relaxed line-clamp-2">
+            {info.descriptionCourte}
+          </p>
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-[11px] text-accent font-semibold hover:text-accent-600 mt-1 cursor-pointer transition-colors"
+          >
+            En savoir plus →
+          </button>
+        </div>
+      )}
+
       {/* Slider - CSS transitions only, no framer-motion */}
       <div className="relative mb-1">
         <input
@@ -179,6 +198,16 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
       <p className="mt-2.5 text-[11px] text-gris-texte/60 text-right">
         minimum : {minimum} %
       </p>
+
+      {/* Info Modal */}
+      {showModal && (
+        <PoleInfoModal
+          poleId={id}
+          percentage={percentage}
+          taxAmount={taxAmount}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 }, (prev, next) => {

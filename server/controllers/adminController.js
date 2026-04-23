@@ -1,6 +1,17 @@
 import pool from '../db.js';
 import { toCSV } from '../utils/exportCSV.js';
 
+// Simple in-memory cache (5 min TTL)
+const cache = new Map();
+function getCached(key, ttlMs = 300000) {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.ts < ttlMs) return entry.data;
+  return null;
+}
+function setCache(key, data) {
+  cache.set(key, { data, ts: Date.now() });
+}
+
 /**
  * Enregistre une action dans les logs d'administration.
  */
@@ -265,6 +276,231 @@ export async function getLogs(req, res) {
     });
   } catch (err) {
     console.error('[ADMIN] Erreur logs :', err);
+    return res.status(500).json({ message: 'Erreur interne du serveur.' });
+  }
+}
+
+/**
+ * GET /api/admin/participants?page=1&limit=20&search=dupont
+ * Liste paginée des participants avec montant et date de soumission.
+ */
+export async function getParticipants(req, res) {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const search = (req.query.search || '').trim();
+
+    let whereClause = "WHERE u.role = 'user'";
+    const params = [];
+
+    if (search) {
+      params.push(`%${search}%`);
+      whereClause += ` AND (
+        u.prenom ILIKE $${params.length}
+        OR u.nom ILIKE $${params.length}
+        OR u.email ILIKE $${params.length}
+        OR CONCAT(u.prenom, ' ', u.nom) ILIKE $${params.length}
+      )`;
+    }
+
+    // Count
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM users u ${whereClause}`,
+      params
+    );
+    const total = countResult.rows[0].total;
+
+    // Participants with allocation info
+    params.push(limit, offset);
+    const result = await pool.query(
+      `SELECT
+        u.id, u.prenom, u.nom, u.email, u.email_verified, u.created_at AS date_inscription,
+        a.id AS allocation_id, a.total_amount, a.created_at AS date_soumission
+      FROM users u
+      LEFT JOIN allocations a ON a.user_id = u.id
+      ${whereClause}
+      ORDER BY a.created_at DESC NULLS LAST, u.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    await logAction(req.user.id, `Liste participants (page ${page}, recherche: "${search || '-'}")`);
+
+    return res.json({
+      page, limit, total,
+      total_pages: Math.ceil(total / limit),
+      participants: result.rows.map((r) => ({
+        id: r.id,
+        prenom: r.prenom,
+        nom: r.nom,
+        email: r.email,
+        email_verified: r.email_verified,
+        date_inscription: r.date_inscription,
+        allocation_id: r.allocation_id,
+        total_amount: r.total_amount ? parseFloat(r.total_amount) : null,
+        date_soumission: r.date_soumission,
+      })),
+    });
+  } catch (err) {
+    console.error('[ADMIN] Erreur participants :', err);
+    return res.status(500).json({ message: 'Erreur interne du serveur.' });
+  }
+}
+
+/**
+ * GET /api/admin/participants/:id
+ * Détail complet d'un participant avec répartition par pôle.
+ */
+export async function getParticipantDetail(req, res) {
+  try {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: 'ID invalide.' });
+    }
+
+    // Check cache
+    const cacheKey = `participant_${userId}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      await logAction(req.user.id, `Consultation participant #${userId} (cache)`);
+      return res.json(cached);
+    }
+
+    // User info (no sensitive fields)
+    const userResult = await pool.query(
+      `SELECT id, prenom, nom, email, email_verified, created_at AS date_inscription
+       FROM users WHERE id = $1 AND role = 'user'`,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Participant introuvable.' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Allocation
+    const allocResult = await pool.query(
+      `SELECT id, total_amount, created_at AS date_soumission
+       FROM allocations WHERE user_id = $1
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+
+    let allocation = null;
+    let poles = [];
+
+    if (allocResult.rows.length > 0) {
+      const alloc = allocResult.rows[0];
+      allocation = {
+        id: alloc.id,
+        total_amount: parseFloat(alloc.total_amount),
+        date_soumission: alloc.date_soumission,
+      };
+
+      // Detail by pole (aggregated from ministere-level allocations_detail)
+      const detailResult = await pool.query(
+        `SELECT
+          p.id AS pole_id, p.name AS pole_name, p.emoji, p.slug,
+          ROUND(SUM(ad.percentage)::numeric, 2) AS pourcentage,
+          ROUND(SUM(ad.percentage) / 100.0 * $2, 2) AS montant_euros
+        FROM allocations_detail ad
+        JOIN ministeres m ON m.id = ad.ministere_id
+        JOIN poles p ON p.id = m.pole_id
+        WHERE ad.allocation_id = $1
+        GROUP BY p.id, p.name, p.emoji, p.slug
+        ORDER BY pourcentage DESC`,
+        [alloc.id, alloc.total_amount]
+      );
+
+      poles = detailResult.rows.map((r) => ({
+        pole_id: r.pole_id,
+        pole_name: r.pole_name,
+        emoji: r.emoji,
+        slug: r.slug,
+        pourcentage: parseFloat(r.pourcentage),
+        montant_euros: parseFloat(r.montant_euros),
+      }));
+    }
+
+    const data = { user, allocation, poles };
+    setCache(cacheKey, data);
+
+    await logAction(req.user.id, `Consultation participant #${userId} (${user.email})`);
+
+    return res.json(data);
+  } catch (err) {
+    console.error('[ADMIN] Erreur participant detail :', err);
+    return res.status(500).json({ message: 'Erreur interne du serveur.' });
+  }
+}
+
+/**
+ * GET /api/admin/participants/:id/export-csv
+ * Export CSV de la répartition d'un participant.
+ */
+export async function exportParticipantCSV(req, res) {
+  try {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: 'ID invalide.' });
+    }
+
+    const userResult = await pool.query(
+      'SELECT prenom, nom FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Participant introuvable.' });
+    }
+
+    const { prenom, nom } = userResult.rows[0];
+
+    const allocResult = await pool.query(
+      'SELECT id, total_amount FROM allocations WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+
+    if (allocResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Aucune répartition trouvée.' });
+    }
+
+    const alloc = allocResult.rows[0];
+    const totalAmount = parseFloat(alloc.total_amount);
+
+    const detailResult = await pool.query(
+      `SELECT
+        p.name AS pole, p.emoji,
+        ROUND(SUM(ad.percentage)::numeric, 2) AS pourcentage,
+        ROUND(SUM(ad.percentage) / 100.0 * $2, 2) AS montant
+      FROM allocations_detail ad
+      JOIN ministeres m ON m.id = ad.ministere_id
+      JOIN poles p ON p.id = m.pole_id
+      WHERE ad.allocation_id = $1
+      GROUP BY p.id, p.name, p.emoji
+      ORDER BY pourcentage DESC`,
+      [alloc.id, totalAmount]
+    );
+
+    // Build CSV
+    let csv = 'Pôle,Pourcentage,Montant (€)\n';
+    for (const row of detailResult.rows) {
+      csv += `"${row.emoji} ${row.pole}",${row.pourcentage}%,${row.montant}\n`;
+    }
+    csv += `TOTAL,100%,${totalAmount.toFixed(2)}\n`;
+
+    const filename = `${prenom}_${nom}_repartition.csv`
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_.-]/g, '_');
+
+    await logAction(req.user.id, `Export CSV participant #${userId} (${prenom} ${nom})`);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send('\ufeff' + csv);
+  } catch (err) {
+    console.error('[ADMIN] Erreur export participant CSV :', err);
     return res.status(500).json({ message: 'Erreur interne du serveur.' });
   }
 }

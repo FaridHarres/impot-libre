@@ -17,6 +17,7 @@ const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminExport = lazy(() => import('./pages/admin/AdminExport'));
 const AdminNewsletter = lazy(() => import('./pages/admin/AdminNewsletter'));
+const AdminParticipants = lazy(() => import('./pages/admin/AdminParticipants'));
 
 /** Shared page loader */
 function PageLoader() {
@@ -141,6 +142,10 @@ function App() {
             <Route
               path="/admin/newsletter"
               element={<AdminRoute><AdminNewsletter /></AdminRoute>}
+            />
+            <Route
+              path="/admin/participants"
+              element={<AdminRoute><AdminParticipants /></AdminRoute>}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -116,6 +116,16 @@ export default function AdminDashboard() {
         {/* ─── Liens rapides ─── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <Link
+            to="/admin/participants"
+            className="flex items-center gap-3 bg-white border border-gris-bordure rounded-sm p-4 hover:border-bleu-republique transition-colors"
+          >
+            <span className="text-xl">👥</span>
+            <div>
+              <p className="text-sm font-medium text-texte">Participants</p>
+              <p className="text-xs text-gris-texte">Vue détaillée par personne</p>
+            </div>
+          </Link>
+          <Link
             to="/admin/export"
             className="flex items-center gap-3 bg-white border border-gris-bordure rounded-sm p-4 hover:border-bleu-republique transition-colors"
           >

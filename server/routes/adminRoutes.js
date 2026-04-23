@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDashboard, exportCSV, exportJSON, getSuspects, getLogs } from '../controllers/adminController.js';
+import { getDashboard, exportCSV, exportJSON, getSuspects, getLogs, getParticipants, getParticipantDetail, exportParticipantCSV } from '../controllers/adminController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../middlewares/adminMiddleware.js';
 
@@ -14,5 +14,8 @@ router.get('/export/csv', exportCSV);
 router.get('/export/json', exportJSON);
 router.get('/suspects', getSuspects);
 router.get('/logs', getLogs);
+router.get('/participants', getParticipants);
+router.get('/participants/:id', getParticipantDetail);
+router.get('/participants/:id/export-csv', exportParticipantCSV);
 
 export default router;

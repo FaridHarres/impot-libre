@@ -14,6 +14,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Resultats = lazy(() => import('./pages/Resultats'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const BudgetNation = lazy(() => import('./pages/BudgetNation'));
 const MentionsLegales = lazy(() => import('./pages/MentionsLegales'));
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -134,6 +135,14 @@ function App() {
               element={
                 <ProtectedRoute redirectMessage="Connectez-vous pour répartir vos impôts.">
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/budget-nation"
+              element={
+                <ProtectedRoute redirectMessage="Connectez-vous pour découvrir le budget de la Nation.">
+                  <BudgetNation />
                 </ProtectedRoute>
               }
             />

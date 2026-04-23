@@ -44,6 +44,11 @@ export default function Header() {
                 Répartition
               </Link>
             )}
+            {isAuthenticated && (
+              <Link to="/budget-nation" className={linkClass('/budget-nation')}>
+                Budget Nation
+              </Link>
+            )}
             {isAdmin && (
               <Link to="/admin" className={linkClass('/admin')}>
                 Admin
@@ -112,6 +117,11 @@ export default function Header() {
             {isAuthenticated && (
               <Link to="/repartition" className={`block ${linkClass('/repartition')}`} onClick={() => setMenuOpen(false)}>
                 Répartition
+              </Link>
+            )}
+            {isAuthenticated && (
+              <Link to="/budget-nation" className={`block ${linkClass('/budget-nation')}`} onClick={() => setMenuOpen(false)}>
+                Budget Nation
               </Link>
             )}
             {isAdmin && (

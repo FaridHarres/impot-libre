@@ -106,7 +106,7 @@ app.use((req, res, next) => {
       const headerToken = req.headers['x-csrf-token'];
 
       if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-        const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/resend-verification', '/api/newsletter/subscribe'];
+        const exemptPaths = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/resend-verification', '/api/newsletter/subscribe', '/api/allocations', '/api/auth/logout', '/api/auth/reset-password'];
         const isExempt = exemptPaths.some((p) => req.path.startsWith(p));
 
         if (!isExempt && req.cookies?.token) {

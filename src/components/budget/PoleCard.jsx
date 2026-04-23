@@ -44,10 +44,11 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
     [percentage, taxAmount]
   );
 
-  const fillPercent = useMemo(
-    () => percentage > 0 ? (percentage / 100) * 100 : 0,
-    [percentage]
-  );
+  const fillPercent = useMemo(() => {
+    const range = maxDynamique - minimum;
+    if (range <= 0) return percentage > minimum ? 100 : 0;
+    return Math.min(100, Math.max(0, ((percentage - minimum) / range) * 100));
+  }, [percentage, minimum, maxDynamique]);
 
   const handleSliderChange = useCallback(
     (e) => {
@@ -132,14 +133,14 @@ const PoleCard = memo(function PoleCard({ pole, taxAmount = 0, index = 0, onSlid
         <input
           type="range"
           min={minimum}
-          max={maxDynamique}
+          max={100}
           step={0.1}
           value={percentage}
           onChange={handleSliderChange}
           disabled={isDisabled}
           className="w-full h-[6px] rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
           style={{
-            background: `linear-gradient(to right, ${colors[0]} 0%, ${colors[1]} ${fillPercent}%, #E5E7EB ${fillPercent}%, #E5E7EB 100%)`,
+            background: `linear-gradient(to right, ${colors[0]} 0%, ${colors[1]} ${percentage}%, #E5E7EB ${percentage}%, #E5E7EB 100%)`,
           }}
           aria-label={`Curseur pour ${name}`}
         />

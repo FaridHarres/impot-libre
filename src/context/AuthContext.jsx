@@ -14,37 +14,43 @@ export function AuthProvider({ children }) {
     setError(null);
   }, []);
 
-  // Nettoyage de l'ancien localStorage (migration one-time)
-  useEffect(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  }, []);
-
-  // Vérification de session au montage — source de vérité unique
+  // Vérification de session au montage
   useEffect(() => {
     let cancelled = false;
 
     async function checkSession() {
+      // Essayer d'abord avec le token localStorage (cross-origin fallback)
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      if (storedToken && storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          // ignore
+        }
+      }
+
       try {
         const response = await api.get('/auth/me');
         if (!cancelled) {
           const userData = response.data.user || response.data;
           setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
           setNetworkError(false);
         }
       } catch (err) {
         if (cancelled) return;
 
         if (!err.response) {
-          // Erreur réseau — ne pas déconnecter
           setNetworkError(true);
-          // Retry toutes les 10 secondes
           retryRef.current = setTimeout(() => {
             if (!cancelled) checkSession();
           }, 10000);
         } else {
-          // 401 ou autre erreur HTTP — session invalide
           setUser(null);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
           setNetworkError(false);
         }
       } finally {
@@ -65,7 +71,11 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
-      const userData = response.data.user;
+      const { token, user: userData } = response.data;
+      if (token) {
+        localStorage.setItem('token', token);
+      }
+      localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       setNetworkError(false);
       return userData;
@@ -105,8 +115,10 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch {
-      // Silencieux — le cookie sera expiré de toute façon
+      // Silencieux
     }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     setError(null);
     setNetworkError(false);

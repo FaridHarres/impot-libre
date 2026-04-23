@@ -335,13 +335,14 @@ export async function login(req, res) {
       { expiresIn: JWT_USER_EXPIRY }
     );
 
-    // Cookie httpOnly uniquement — PAS de token dans le body
+    // Cookie httpOnly + token dans le body (nécessaire en cross-origin sans sous-domaine partagé)
     setTokenCookie(res, token, SESSION_MAX_AGE_MS);
 
     logger.info('CONNEXION', { userId: user.id, role: user.role, ip: req.ip, sessionId: sessionHash.slice(0, 8) });
 
     return res.json({
       message: 'Connexion réussie.',
+      token,
       user: {
         id: user.id,
         prenom: user.prenom,

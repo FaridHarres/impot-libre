@@ -9,8 +9,12 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Interceptor : envoyer le token CSRF sur chaque requête mutative
+// Interceptor : token Bearer + CSRF
 api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   if (['post', 'put', 'delete', 'patch'].includes(config.method)) {
     const csrfCookie = document.cookie
       .split('; ')

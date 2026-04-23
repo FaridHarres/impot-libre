@@ -278,7 +278,7 @@ export async function getPublicStats(req, res) {
       emoji: r.emoji,
       pole_minimum: parseInt(r.pole_minimum, 10),
       nombre_allocations: r.nombre_allocations,
-      moyenne: totalAllocations > 0
+      moyenne: totalAllocations > 0 && r.somme_moyenne != null
         ? parseFloat((parseFloat(r.somme_moyenne) / totalAllocations).toFixed(2))
         : 0,
     }));

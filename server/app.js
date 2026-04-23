@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import crypto from 'crypto';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -84,8 +85,6 @@ app.use(express.json({ limit: '100kb' }));
 // Le serveur set un token CSRF dans un cookie lisible par JS
 // Le frontend le renvoie dans le header X-CSRF-Token
 // Le middleware vérifie que les deux correspondent
-import crypto from 'crypto';
-
 app.use((req, res, next) => {
   // Set CSRF cookie on GET requests (lisible par JS, pas httpOnly)
   if (req.method === 'GET' && !req.cookies.csrf_token) {

@@ -258,13 +258,19 @@ export async function getPublicStats(req, res) {
         p.slug AS pole_slug,
         p.emoji,
         p.minimum_percentage AS pole_minimum,
-        COUNT(DISTINCT a.id)::int AS nombre_allocations,
-        ROUND(SUM(ad.percentage), 2) AS somme_moyenne
+        COALESCE(sub.nombre_allocations, 0)::int AS nombre_allocations,
+        COALESCE(sub.somme_moyenne, 0) AS somme_moyenne
       FROM poles p
-      LEFT JOIN ministeres m ON m.pole_id = p.id
-      LEFT JOIN allocations_detail ad ON ad.ministere_id = m.id
-      LEFT JOIN allocations a ON a.id = ad.allocation_id AND a.structure_version = 2
-      GROUP BY p.id, p.name, p.slug, p.emoji, p.minimum_percentage
+      LEFT JOIN (
+        SELECT
+          m.pole_id,
+          COUNT(DISTINCT a.id)::int AS nombre_allocations,
+          ROUND(SUM(ad.percentage), 2) AS somme_moyenne
+        FROM allocations_detail ad
+        JOIN ministeres m ON m.id = ad.ministere_id
+        JOIN allocations a ON a.id = ad.allocation_id AND a.structure_version = 2
+        GROUP BY m.pole_id
+      ) sub ON sub.pole_id = p.id
       ORDER BY p.id
     `);
 
